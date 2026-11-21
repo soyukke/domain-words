@@ -609,6 +609,17 @@ button.chip:hover {
   color: var(--muted);
 }
 
+.foot-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.foot-link:hover {
+  color: var(--accent);
+}
+
 .mono-note {
   font-family: var(--mono);
   white-space: nowrap;
