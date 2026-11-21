@@ -1,0 +1,118 @@
+import domain_words::catalog;
+import domain_words::demos::params;
+import domain_words::svg;
+import std::mem;
+import std::string;
+import std::testing;
+
+fn ends_with(hay: []u8, suffix: []u8) -> bool {
+    let hl = mem::len(hay);
+    let sl = mem::len(suffix);
+    if sl > hl { return false; }
+    for 0..sl |i| {
+        if hay[hl - sl + i] != suffix[i] {
+            return false;
+        }
+    }
+    return true;
+}
+
+test "all 54 demos generate valid non-empty SVG, readout, and prompt hint" {
+    let allocator = mem::page_allocator();
+    let total = total_words();
+    testing::expect(total == 54);
+
+    for 0..cast<i64>(total) |i| {
+        let id = cast<i32>(i);
+        var svg_out = string::new(allocator);
+        defer svg_out.deinit(allocator);
+        var readout = string::new(allocator);
+        defer readout.deinit(allocator);
+        var hint = string::new(allocator);
+        defer hint.deinit(allocator);
+
+        let p = params::Params { p0: 60, p1: 1, p2: 1, p3: 1, tick: 250, action: 0 };
+        try render(allocator, id, p, &var svg_out, &var readout, &var hint);
+
+        let sb = svg_out.as_bytes();
+        testing::expect(mem::len(sb) > 80);
+        testing::expect(ends_with(sb, "</svg>"));
+        testing::expect(readout.len() > 0);
+        testing::expect(hint.len() > 0);
+    }
+}
+
+test "all audio-enabled demos synthesize non-empty 4-byte-aligned f32 PCM" {
+    let allocator = mem::page_allocator();
+    var audio_count: i32 = 0;
+    for 0..cast<i64>(total_words()) |i| {
+        let id = cast<i32>(i);
+        if has_audio(id) {
+            audio_count = audio_count + 1;
+            var pcm = string::new(allocator);
+            defer pcm.deinit(allocator);
+            let p = params::Params { p0: 120, p1: 1, p2: 1, p3: 1, tick: 0, action: 0 };
+            try synth_pcm(allocator, id, p, &var pcm);
+            testing::expect(pcm.len() >= 4000);
+            testing::expect((pcm.len() % 4) == 0);
+        }
+    }
+    testing::expect(audio_count >= 12);
+}
+
+test "WCAG contrast ratio matches black-white 21:1 and identical 1:1" {
+    let bw = svg::contrast_ratio(0, 0, 0, 255, 255, 255);
+    testing::expect(bw > 20.9 and bw < 21.1);
+    let same = svg::contrast_ratio(128, 128, 128, 128, 128, 128);
+    testing::expect(same > 0.99 and same < 1.01);
+}
+
+test "catalog search ranks symptom and title matches" {
+    let allocator = mem::page_allocator();
+    var sample = string::new(allocator);
+    errdefer sample.deinit(allocator);
+    try sample.append_bytes(allocator, "0");
+    try sample.append_byte(allocator, 9);
+    try sample.append_bytes(allocator, "0");
+    try sample.append_byte(allocator, 9);
+    try sample.append_bytes(allocator, "rim-light");
+    try sample.append_byte(allocator, 9);
+    try sample.append_bytes(allocator, "リムライト");
+    try sample.append_byte(allocator, 9);
+    try sample.append_bytes(allocator, "Rim Light");
+    try sample.append_byte(allocator, 9);
+    try sample.append_bytes(allocator, "のっぺりする 埋もれる");
+    try sample.append_byte(allocator, 9);
+    try sample.append_bytes(allocator, "輪郭に光を当てる");
+    try sample.append_byte(allocator, 10);
+    try sample.append_bytes(allocator, "30");
+    try sample.append_byte(allocator, 9);
+    try sample.append_bytes(allocator, "5");
+    try sample.append_byte(allocator, 9);
+    try sample.append_bytes(allocator, "git-merge");
+    try sample.append_byte(allocator, 9);
+    try sample.append_bytes(allocator, "マージ・ブランチ");
+    try sample.append_byte(allocator, 9);
+    try sample.append_bytes(allocator, "Git Merge");
+    try sample.append_byte(allocator, 9);
+    try sample.append_bytes(allocator, "変更を混ぜる 競合");
+    try sample.append_byte(allocator, 9);
+    try sample.append_bytes(allocator, "作業枝を合流");
+    try sample.append_byte(allocator, 10);
+
+    let cat = try catalog::build(allocator, move sample);
+    defer cat.deinit(allocator);
+    testing::expect(cat.entries.len() == 2);
+
+    var out1 = string::new(allocator);
+    defer out1.deinit(allocator);
+    try catalog::search(allocator, &cat, -1, "のっぺり", &var out1);
+    let b1 = out1.as_bytes();
+    testing::expect(mem::len(b1) == 1 and b1[0] == 48);
+
+    var out2 = string::new(allocator);
+    defer out2.deinit(allocator);
+    try catalog::search(allocator, &cat, 5, "merge", &var out2);
+    let b2 = out2.as_bytes();
+    testing::expect(mem::len(b2) == 2 and b2[0] == 51 and b2[1] == 48);
+}

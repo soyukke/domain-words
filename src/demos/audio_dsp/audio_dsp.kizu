@@ -1,0 +1,959 @@
+// Categories 3 & 4: Music/BGM (IDs 18..23) and Sound Effects (IDs 24..29)
+// Includes both Kizu SVG visualizations AND deterministic 22050Hz Float32 PCM DSP synthesizer!
+import domain_words::demos::params;
+import domain_words::svg;
+import std::float;
+import std::math;
+import std::mem;
+import std::string;
+
+pub fn sample_rate() -> i32 {
+    return 22050;
+}
+
+pub fn has_audio(word_id: i32) -> bool {
+    if word_id >= 18 and word_id <= 29 {
+        return true;
+    }
+    // Also support audio cues for video (12, 13, 17) and game feel (42, 43, 44, 46, 47)
+    if word_id == 12 or word_id == 13 or word_id == 17 {
+        return true;
+    }
+    if word_id == 42 or word_id == 43 or word_id == 44 or word_id == 46 or word_id == 47 {
+        return true;
+    }
+    return false;
+}
+
+fn push_f32_le(allocator: Allocator, out: &var string::String, sample: f64) -> mem::Error!void {
+    let clipped = math::tanh<f64>(sample) * 0.48;
+    let bits = float::bits_f32(cast<f32>(clipped));
+    try out.append_byte(allocator, cast<u8>(bits & 255));
+    try out.append_byte(allocator, cast<u8>((bits >> 8) & 255));
+    try out.append_byte(allocator, cast<u8>((bits >> 16) & 255));
+    try out.append_byte(allocator, cast<u8>((bits >> 24) & 255));
+    return;
+}
+
+fn next_noise(seed: &var u64) -> f64 {
+    seed.* = (seed.* * 6364136223846793005 + 1442695040888963407) & 4294967295;
+    let v = cast<f64>(seed.* & 65535) / 32768.0 - 1.0;
+    return v;
+}
+
+fn midi_to_hz(midi: f64) -> f64 {
+    return 440.0 * math::pow<f64>(2.0, (midi - 69.0) / 12.0);
+}
+
+fn osc_tri(phase: f64) -> f64 {
+    let f = phase - math::floor<f64>(phase);
+    if f < 0.25 { return f * 4.0; }
+    if f < 0.75 { return 2.0 - f * 4.0; }
+    return f * 4.0 - 4.0;
+}
+
+fn osc_saw(phase: f64) -> f64 {
+    let f = phase - math::floor<f64>(phase);
+    return 2.0 * f - 1.0;
+}
+
+fn adsr_value(t: f64, dur: f64, atk: f64, dec: f64, sus: f64, rel: f64) -> f64 {
+    if t < 0.0 { return 0.0; }
+    if t < atk {
+        if atk <= 0.0005 { return 1.0; }
+        return t / atk;
+    }
+    let after_a = t - atk;
+    if after_a < dec {
+        if dec <= 0.0005 { return sus; }
+        return 1.0 - (1.0 - sus) * (after_a / dec);
+    }
+    let rel_start = math::max<f64>(atk + dec, dur - rel);
+    if t < rel_start {
+        return sus;
+    }
+    let in_rel = t - rel_start;
+    if rel <= 0.0005 or in_rel >= rel {
+        return 0.0;
+    }
+    return sus * (1.0 - in_rel / rel);
+}
+
+// ---- SVG Renderer for Music (18..23) & SE (24..29) ------------------------
+
+pub fn render(
+    allocator: Allocator,
+    word_id: i32,
+    p: params::Params,
+    out_svg: &var string::String,
+    out_readout: &var string::String,
+    out_hint: &var string::String,
+) -> mem::Error!void {
+    if word_id == 18 { try demo_bpm_svg(allocator, p, out_svg, out_readout, out_hint); }
+    else if word_id == 19 { try demo_filter_svg(allocator, p, out_svg, out_readout, out_hint); }
+    else if word_id == 20 { try demo_fill_break_svg(allocator, p, out_svg, out_readout, out_hint); }
+    else if word_id == 21 { try demo_loop_point_svg(allocator, p, out_svg, out_readout, out_hint); }
+    else if word_id == 22 { try demo_major_minor_svg(allocator, p, out_svg, out_readout, out_hint); }
+    else if word_id == 23 { try demo_arrangement_svg(allocator, p, out_svg, out_readout, out_hint); }
+    else if word_id == 24 { try demo_adsr_svg(allocator, p, out_svg, out_readout, out_hint); }
+    else if word_id == 25 { try demo_pitch_bend_svg(allocator, p, out_svg, out_readout, out_hint); }
+    else if word_id == 26 { try demo_se_layer_svg(allocator, p, out_svg, out_readout, out_hint); }
+    else if word_id == 27 { try demo_ducking_svg(allocator, p, out_svg, out_readout, out_hint); }
+    else if word_id == 28 { try demo_pitch_var_svg(allocator, p, out_svg, out_readout, out_hint); }
+    else { try demo_foley_synth_svg(allocator, p, out_svg, out_readout, out_hint); }
+    return;
+}
+
+// 18: BPM (p0=bpm 70..175)
+fn demo_bpm_svg(allocator: Allocator, p: params::Params, out: &var string::String, readout: &var string::String, hint: &var string::String) -> mem::Error!void {
+    let bpm = svg::clamp_i32(p.p0, 70, 175);
+    let active_beat = (p.tick / 125) % 8;
+
+    try svg::begin(allocator, out, 480, 270);
+    try svg::rect(allocator, out, 0.0, 0.0, 480.0, 270.0, 8.0, "var(--sheet)", "var(--rule)", 1.0);
+    try out.append_bytes(allocator, "<text x='240' y='88' font-size='56' text-anchor='middle' fill='var(--ink)' font-weight='800' font-family='var(--mono)'>");
+    try svg::append_int(allocator, out, cast<i64>(bpm));
+    try out.append_bytes(allocator, "</text>");
+    try svg::text(allocator, out, 240.0, 112.0, 12.0, "middle", "var(--accent)", "700", true,
+        if bpm < 95 { "BPM / バラード・街・落ち着き" } else if bpm < 135 { "BPM / 探索・ポップ・軽快" } else { "BPM / バトル・疾走・緊張" });
+
+    // 8-step visual grid
+    for 0..8 |i| {
+        let bx = 40.0 + cast<f64>(i) * 52.0;
+        let is_down = (i % 4) == 0;
+        let lit = p.tick > 0 and cast<i32>(i) == active_beat;
+        let fill = if lit { "var(--accent)" } else if is_down { "var(--ink)" } else { "var(--grid)" };
+        try svg::rect(allocator, out, bx, 146.0, 38.0, if is_down { 54.0 } else { 38.0 }, 5.0, fill, "var(--rule)", 1.0);
+    }
+    // Scale reference bar
+    try svg::line(allocator, out, 40.0, 232.0, 440.0, 232.0, "var(--rule)", 3.0, "");
+    let mx = 40.0 + (cast<f64>(bpm - 70) / 105.0) * 400.0;
+    try svg::circle(allocator, out, mx, 232.0, 7.0, "var(--accent)", "", 0.0);
+    try svg::text(allocator, out, 40.0, 254.0, 10.0, "start", "var(--muted)", "600", true, "70 街");
+    try svg::text(allocator, out, 230.0, 254.0, 10.0, "middle", "var(--muted)", "600", true, "120 探索");
+    try svg::text(allocator, out, 440.0, 254.0, 10.0, "end", "var(--muted)", "600", true, "170 バトル");
+    try svg::end(allocator, out);
+
+    try readout.append_bytes(allocator, "BPM ");
+    try svg::append_int(allocator, readout, cast<i64>(bpm));
+    try readout.append_bytes(allocator, " (1拍 ");
+    try svg::append_int(allocator, readout, cast<i64>(60000 / bpm));
+    try readout.append_bytes(allocator, "ms)");
+
+    try hint.append_bytes(allocator, "BPM ");
+    try svg::append_int(allocator, hint, cast<i64>(bpm));
+    try hint.append_bytes(allocator, " 前後のテンポで制作");
+    return;
+}
+
+// 19: Lowpass / Highpass filter (p0=mode 0:bypass 1:lowpass 2:highpass, p1=cutoff 15..95)
+fn demo_filter_svg(allocator: Allocator, p: params::Params, out: &var string::String, readout: &var string::String, hint: &var string::String) -> mem::Error!void {
+    let mode = svg::clamp_i32(p.p0, 0, 2);
+    let cut = svg::clamp_i32(p.p1, 15, 95);
+    let hz = cast<i64>(math::round<f64>(140.0 * math::pow<f64>(45.0, cast<f64>(cut - 15) / 80.0)));
+
+    try svg::begin(allocator, out, 480, 270);
+    try svg::rect(allocator, out, 0.0, 0.0, 480.0, 270.0, 8.0, "var(--sheet)", "var(--rule)", 1.0);
+    // Grid
+    for 0..5 |i| {
+        let gy = 48.0 + cast<f64>(i) * 42.0;
+        try svg::line(allocator, out, 42.0, gy, 446.0, gy, "var(--grid)", 1.0, "");
+    }
+    let cx = 42.0 + (cast<f64>(cut - 15) / 80.0) * 404.0;
+    try svg::line(allocator, out, cx, 40.0, cx, 218.0, "var(--accent)", 1.5, "4 3");
+
+    // Frequency response curve
+    try out.append_bytes(allocator, "<path d='M 42 ");
+    for 0..41 |i| {
+        let frac = cast<f64>(i) / 40.0;
+        let x = 42.0 + frac * 404.0;
+        let f_hz = 140.0 * math::pow<f64>(45.0, frac);
+        let ratio = f_hz / cast<f64>(hz);
+        var gain = 1.0;
+        if mode == 1 {
+            gain = 1.0 / math::sqrt<f64>(1.0 + ratio * ratio * ratio * ratio);
+        } else if mode == 2 {
+            let inv = 1.0 / math::max<f64>(ratio, 0.05);
+            gain = 1.0 / math::sqrt<f64>(1.0 + inv * inv * inv * inv);
+        }
+        let y = 216.0 - gain * 150.0;
+        if i == 0 {
+            try svg::append_f1(allocator, out, y);
+        } else {
+            try out.append_bytes(allocator, " L ");
+            try svg::append_f1(allocator, out, x);
+            try out.append_byte(allocator, 32);
+            try svg::append_f1(allocator, out, y);
+        }
+    }
+    try out.append_bytes(allocator, "' fill='none' stroke='var(--accent)' stroke-width='3.2' stroke-linecap='round'/>");
+
+    try svg::text(allocator, out, 42.0, 240.0, 10.0, "start", "var(--muted)", "700", true, "LOW 140Hz");
+    try svg::text(allocator, out, 244.0, 240.0, 10.0, "middle", "var(--muted)", "700", true, "MID 1kHz");
+    try svg::text(allocator, out, 446.0, 240.0, 10.0, "end", "var(--muted)", "700", true, "HIGH 6kHz");
+    try svg::badge(allocator, out, 16.0, 12.0, 134.0, 22.0, "var(--ink)", "var(--paper)",
+        if mode == 0 { "バイパス (原音)" } else if mode == 1 { "ローパス (高域カット)" } else { "ハイパス (低域カット)" });
+    try svg::end(allocator, out);
+
+    if mode == 0 {
+        try readout.append_bytes(allocator, "原音そのまま (フィルタなし)");
+        try hint.append_bytes(allocator, "ポーズ画面や水中ではBGMにローパスフィルタを掛ける");
+    } else if mode == 1 {
+        try readout.append_bytes(allocator, "ローパス ");
+        try svg::append_int(allocator, readout, hz);
+        try readout.append_bytes(allocator, "Hz / 水中・メニュー奥のこもり感");
+        try hint.append_bytes(allocator, "カットオフ ");
+        try svg::append_int(allocator, hint, hz);
+        try hint.append_bytes(allocator, "Hz のローパスフィルタで高域を削り奥に引く");
+    } else {
+        try readout.append_bytes(allocator, "ハイパス ");
+        try svg::append_int(allocator, readout, hz);
+        try readout.append_bytes(allocator, "Hz / ラジオ風・低域の被り整理");
+        try hint.append_bytes(allocator, "カットオフ ");
+        try svg::append_int(allocator, hint, hz);
+        try hint.append_bytes(allocator, "Hz のハイパスフィルタで低域を切る");
+    }
+    return;
+}
+
+// 20: Fill-in & Break (p0=mode 0:flat 1:fill 2:break)
+fn demo_fill_break_svg(allocator: Allocator, p: params::Params, out: &var string::String, readout: &var string::String, hint: &var string::String) -> mem::Error!void {
+    let mode = svg::clamp_i32(p.p0, 0, 2);
+    try svg::begin(allocator, out, 480, 270);
+    try svg::rect(allocator, out, 0.0, 0.0, 480.0, 270.0, 8.0, "var(--sheet)", "var(--rule)", 1.0);
+
+    try svg::text(allocator, out, 28.0, 42.0, 11.0, "start", "var(--muted)", "700", true, "BAR 1-3 (通常ループ)");
+    try svg::text(allocator, out, 272.0, 42.0, 11.0, "start", "var(--accent)", "700", true, "BAR 4 (展開の合図)");
+
+    for 0..16 |i| {
+        let bx = 28.0 + cast<f64>(i) * 26.5;
+        let is_bar4 = i >= 12;
+        var h = if (i % 2) == 0 { 64.0 } else { 32.0 };
+        var fill = "var(--ink)";
+        if is_bar4 {
+            if mode == 1 {
+                h = 46.0 + cast<f64>(i - 12) * 18.0;
+                fill = "var(--accent)";
+            } else if mode == 2 {
+                h = if i == 15 { 112.0 } else { 8.0 };
+                fill = if i == 15 { "var(--accent)" } else { "var(--grid)" };
+            }
+        }
+        try svg::rect(allocator, out, bx, 194.0 - h, 20.0, h, 3.0, fill, "", 0.0);
+    }
+    try svg::line(allocator, out, 342.0, 50.0, 342.0, 210.0, "var(--accent)", 1.5, "4 3");
+    try svg::text(allocator, out, 240.0, 240.0, 12.0, "middle", "var(--ink)", "700", false,
+        if mode == 0 { "ずっと同じリズムで展開の予感がない" } else if mode == 1 { "4小節目末尾に連打のフィルインでサビを予告" } else { "サビ直前に音を抜くブレイクで落差を作る" });
+    try svg::end(allocator, out);
+
+    if mode == 0 {
+        try readout.append_bytes(allocator, "ベタ打ちループ / 展開の区切りがない");
+        try hint.append_bytes(allocator, "4小節目の末尾にドラムのフィルインを入れて展開を予告");
+    } else if mode == 1 {
+        try readout.append_bytes(allocator, "フィルイン入り / 4小節目末尾の駆け上がり");
+        try hint.append_bytes(allocator, "サビ前の小節末尾に短いフィルインを入れて盛り上げる");
+    } else {
+        try readout.append_bytes(allocator, "ブレイク入り / 一瞬の無音でサビの頭を爆発");
+        try hint.append_bytes(allocator, "サビ突入の直前に1拍のブレイク(無音)を挟む");
+    }
+    return;
+}
+
+// 21: Intro + Loop point (p0=mode 0:restart_all 1:seamless_loop, tick=0..1000)
+fn demo_loop_point_svg(allocator: Allocator, p: params::Params, out: &var string::String, readout: &var string::String, hint: &var string::String) -> mem::Error!void {
+    let seamless = p.p0 != 0;
+    try svg::begin(allocator, out, 480, 270);
+    try svg::rect(allocator, out, 0.0, 0.0, 480.0, 270.0, 8.0, "var(--sheet)", "var(--rule)", 1.0);
+
+    try svg::rect(allocator, out, 32.0, 96.0, 116.0, 56.0, 6.0, "var(--ink)", "", 0.0);
+    try svg::text(allocator, out, 90.0, 129.0, 13.0, "middle", "var(--paper)", "800", false, "イントロ");
+    try svg::rect(allocator, out, 154.0, 96.0, 294.0, 56.0, 6.0, "var(--paper)", "var(--accent)", 2.0);
+    try svg::text(allocator, out, 301.0, 129.0, 14.0, "middle", "var(--ink)", "800", false, "ループ区間 A → B");
+
+    if seamless {
+        try out.append_bytes(allocator, "<path d='M 442 92 C 442 40 158 40 158 90' fill='none' stroke='var(--accent)' stroke-width='3' stroke-linecap='round'/>");
+        try out.append_bytes(allocator, "<polygon points='158,94 151,82 165,82' fill='var(--accent)'/>");
+        try svg::badge(allocator, out, 232.0, 34.0, 136.0, 22.0, "var(--accent)", "#ffffff", "2周目から A に戻る");
+    } else {
+        try out.append_bytes(allocator, "<path d='M 442 92 C 442 36 38 36 38 90' fill='none' stroke='var(--muted)' stroke-width='2.5' stroke-dasharray='6 4'/>");
+        try out.append_bytes(allocator, "<polygon points='38,94 31,82 45,82' fill='var(--muted)'/>");
+        try svg::badge(allocator, out, 166.0, 34.0, 156.0, 22.0, "var(--grid)", "var(--ink)", "毎回イントロからやり直し");
+    }
+
+    try svg::text(allocator, out, 154.0, 174.0, 10.0, "middle", "var(--accent)", "700", true, "LOOP START");
+    try svg::text(allocator, out, 444.0, 174.0, 10.0, "end", "var(--accent)", "700", true, "LOOP END");
+    try svg::text(allocator, out, 240.0, 224.0, 12.0, "middle", "var(--muted)", "600", false,
+        if seamless { "イントロは1回だけ鳴らし、以降はA〜Bを切れ目なく周回" } else { "毎回イントロへ戻るとゲームの没入感が途切れる" });
+    try svg::end(allocator, out);
+
+    try readout.append_bytes(allocator, if seamless { "イントロ付きシームレスループ" } else { "全体リピート (毎回冒頭に戻る)" });
+    try hint.append_bytes(allocator, "イントロとループ区間(A〜B)を分けたシームレスループ構造で作る");
+    return;
+}
+
+// 22: Major / Minor / Sus (p0=scale 0:major 1:minor 2:sus)
+fn demo_major_minor_svg(allocator: Allocator, p: params::Params, out: &var string::String, readout: &var string::String, hint: &var string::String) -> mem::Error!void {
+    let mode = svg::clamp_i32(p.p0, 0, 2);
+    try svg::begin(allocator, out, 480, 270);
+    try svg::rect(allocator, out, 0.0, 0.0, 480.0, 270.0, 8.0, "var(--sheet)", "var(--rule)", 1.0);
+
+    // 1-octave keyboard: white keys C D E F G A B C
+    let wx0 = 56.0;
+    let kw = 46.0;
+    for 0..8 |i| {
+        let kx = wx0 + cast<f64>(i) * kw;
+        var lit = false;
+        if i == 0 or i == 4 or i == 7 { lit = true; }
+        if mode == 0 and i == 2 { lit = true; } // E (major 3rd)
+        if mode == 2 and (i == 1 or i == 3) { lit = true; } // D, F (sus2/4)
+        try svg::rect(allocator, out, kx, 72.0, kw - 2.0, 126.0, 4.0, if lit { "var(--accent)" } else { "var(--paper)" }, "var(--ink)", 1.4);
+    }
+    // Black keys: C#, D#(Eb), F#, G#, A#
+    let bk_pos = [5]f64{ 0.68, 1.68, 3.68, 4.68, 5.68 };
+    for 0..5 |i| {
+        let bx = wx0 + bk_pos[i] * kw;
+        let is_eb = i == 1 and mode == 1;
+        try svg::rect(allocator, out, bx, 72.0, 28.0, 76.0, 3.0, if is_eb { "var(--accent)" } else { "var(--ink)" }, "var(--paper)", 1.0);
+    }
+
+    try svg::badge(allocator, out, 56.0, 24.0, 168.0, 26.0, "var(--ink)", "var(--paper)",
+        if mode == 0 { "メジャー (長調) 明るい" } else if mode == 1 { "マイナー (短調) 哀愁" } else { "サス (浮遊・神秘)" });
+    try svg::text(allocator, out, 240.0, 232.0, 12.0, "middle", "var(--muted)", "700", true,
+        if mode == 0 { "C - E (長3度) - G" } else if mode == 1 { "C - Eb (短3度・半音下) - G" } else { "C - D/F (3度抜き) - G" });
+    try svg::end(allocator, out);
+
+    if mode == 0 {
+        try readout.append_bytes(allocator, "メジャー (長調) / 開放・希望・王道");
+        try hint.append_bytes(allocator, "メジャー(長調)基調で開放感のあるコード進行");
+    } else if mode == 1 {
+        try readout.append_bytes(allocator, "マイナー (短調) / 切なさ・シリアス・緊張");
+        try hint.append_bytes(allocator, "マイナー(短調)基調で切なさや緊張感を出す");
+    } else {
+        try readout.append_bytes(allocator, "サスコード / 明るさも暗さも決め切らない浮遊感");
+        try hint.append_bytes(allocator, "sus2/sus4の浮遊感ある和音で神秘的な雰囲気にする");
+    }
+    return;
+}
+
+// 23: Arrangement density & band separation (p0=bass, p1=chords, p2=melody, p3=drums)
+fn demo_arrangement_svg(allocator: Allocator, p: params::Params, out: &var string::String, readout: &var string::String, hint: &var string::String) -> mem::Error!void {
+    let bass = p.p0 != 0;
+    let chord = p.p1 != 0;
+    let mel = p.p2 != 0;
+    let drm = p.p3 != 0;
+
+    try svg::begin(allocator, out, 480, 270);
+    try svg::rect(allocator, out, 0.0, 0.0, 480.0, 270.0, 8.0, "var(--sheet)", "var(--rule)", 1.0);
+
+    // 4 band lanes
+    try svg::rect(allocator, out, 36.0, 28.0, 408.0, 42.0, 6.0, if mel { "var(--accent)" } else { "var(--grid)" }, "var(--rule)", 1.0);
+    try svg::text(allocator, out, 52.0, 54.0, 12.0, "start", if mel { "#ffffff" } else { "var(--muted)" }, "700", false, "高域: 主旋律 (リード)");
+
+    try svg::rect(allocator, out, 36.0, 82.0, 408.0, 42.0, 6.0, if chord { "var(--ink)" } else { "var(--grid)" }, "var(--rule)", 1.0);
+    try svg::text(allocator, out, 52.0, 108.0, 12.0, "start", if chord { "var(--paper)" } else { "var(--muted)" }, "700", false, "中域: 和音パッド (厚み)");
+
+    try svg::rect(allocator, out, 36.0, 136.0, 408.0, 42.0, 6.0, if bass { "var(--ink)" } else { "var(--grid)" }, "var(--rule)", 1.0);
+    try svg::text(allocator, out, 52.0, 162.0, 12.0, "start", if bass { "var(--paper)" } else { "var(--muted)" }, "700", false, "低域: ベース (土台)");
+
+    try svg::rect(allocator, out, 36.0, 190.0, 408.0, 42.0, 6.0, if drm { "var(--ink)" } else { "var(--grid)" }, "var(--rule)", 1.0);
+    try svg::text(allocator, out, 52.0, 216.0, 12.0, "start", if drm { "var(--paper)" } else { "var(--muted)" }, "700", false, "リズム: ドラム (推進力)");
+
+    var cnt: i64 = 0;
+    if bass { cnt = cnt + 1; }
+    if chord { cnt = cnt + 1; }
+    if mel { cnt = cnt + 1; }
+    if drm { cnt = cnt + 1; }
+    try svg::end(allocator, out);
+
+    try readout.append_bytes(allocator, "稼働 ");
+    try svg::append_int(allocator, readout, cnt);
+    try readout.append_bytes(allocator, "/4 層 / 低・中・高の帯域分担");
+    try hint.append_bytes(allocator, "低域ベース・中域コード・高域メロディで帯域が被らないように整理する");
+    return;
+}
+
+// 24: ADSR envelope (p0=attack 1..100, p1=decay 5..100, p2=sustain 0..100, p3=release 5..100)
+fn demo_adsr_svg(allocator: Allocator, p: params::Params, out: &var string::String, readout: &var string::String, hint: &var string::String) -> mem::Error!void {
+    let a = cast<f64>(svg::clamp_i32(p.p0, 1, 100));
+    let d = cast<f64>(svg::clamp_i32(p.p1, 5, 100));
+    let s = cast<f64>(svg::clamp_i32(p.p2, 0, 100)) / 100.0;
+    let r = cast<f64>(svg::clamp_i32(p.p3, 5, 100));
+
+    let x0 = 36.0;
+    let y_bot = 212.0;
+    let y_top = 48.0;
+    let h = y_bot - y_top;
+    let x1 = x0 + a * 1.1;
+    let x2 = x1 + d * 1.0;
+    let x3 = x2 + 92.0;
+    let x4 = math::min<f64>(452.0, x3 + r * 1.1);
+    let ys = y_bot - s * h;
+
+    try svg::begin(allocator, out, 480, 270);
+    try svg::rect(allocator, out, 0.0, 0.0, 480.0, 270.0, 8.0, "var(--sheet)", "var(--rule)", 1.0);
+    try svg::line(allocator, out, x0, y_bot, 452.0, y_bot, "var(--rule)", 1.2, "");
+    try svg::line(allocator, out, x1, y_top, x1, y_bot, "var(--grid)", 1.0, "3 3");
+    try svg::line(allocator, out, x2, y_top, x2, y_bot, "var(--grid)", 1.0, "3 3");
+    try svg::line(allocator, out, x3, y_top, x3, y_bot, "var(--grid)", 1.0, "3 3");
+
+    // Envelope filled area + stroke
+    try out.append_bytes(allocator, "<path d='M 36 212 L ");
+    try svg::append_f1(allocator, out, x1);
+    try out.append_bytes(allocator, " 48 L ");
+    try svg::append_f1(allocator, out, x2);
+    try out.append_byte(allocator, 32);
+    try svg::append_f1(allocator, out, ys);
+    try out.append_bytes(allocator, " L ");
+    try svg::append_f1(allocator, out, x3);
+    try out.append_byte(allocator, 32);
+    try svg::append_f1(allocator, out, ys);
+    try out.append_bytes(allocator, " L ");
+    try svg::append_f1(allocator, out, x4);
+    try out.append_bytes(allocator, " 212' fill='none' stroke='var(--accent)' stroke-width='3.5' stroke-linejoin='round' stroke-linecap='round'/>");
+
+    try svg::circle(allocator, out, x1, y_top, 5.0, "var(--accent)", "", 0.0);
+    try svg::circle(allocator, out, x2, ys, 4.5, "var(--ink)", "", 0.0);
+    try svg::circle(allocator, out, x3, ys, 4.5, "var(--ink)", "", 0.0);
+
+    try svg::text(allocator, out, (x0 + x1) * 0.5, 236.0, 11.0, "middle", "var(--accent)", "800", true, "A");
+    try svg::text(allocator, out, (x1 + x2) * 0.5, 236.0, 11.0, "middle", "var(--muted)", "700", true, "D");
+    try svg::text(allocator, out, (x2 + x3) * 0.5, 236.0, 11.0, "middle", "var(--muted)", "700", true, "S");
+    try svg::text(allocator, out, (x3 + x4) * 0.5, 236.0, 11.0, "middle", "var(--muted)", "700", true, "R");
+    try svg::end(allocator, out);
+
+    try readout.append_bytes(allocator, "A:");
+    try svg::append_int(allocator, readout, cast<i64>(svg::clamp_i32(p.p0, 1, 100) * 3));
+    try readout.append_bytes(allocator, "ms D:");
+    try svg::append_int(allocator, readout, cast<i64>(svg::clamp_i32(p.p1, 5, 100) * 3));
+    try readout.append_bytes(allocator, "ms S:");
+    try svg::append_int(allocator, readout, cast<i64>(svg::clamp_i32(p.p2, 0, 100)));
+    try readout.append_bytes(allocator, "% R:");
+    try svg::append_int(allocator, readout, cast<i64>(svg::clamp_i32(p.p3, 5, 100) * 4));
+    try readout.append_bytes(allocator, "ms");
+
+    try hint.append_bytes(allocator, "アタック");
+    try svg::append_int(allocator, hint, cast<i64>(svg::clamp_i32(p.p0, 1, 100) * 3));
+    try hint.append_bytes(allocator, "ms・リリース");
+    try svg::append_int(allocator, hint, cast<i64>(svg::clamp_i32(p.p3, 5, 100) * 4));
+    try hint.append_bytes(allocator, "msのADSRエンベロープ");
+    return;
+}
+
+// 25: Pitch bend (p0=start_hz 150..1200, p1=end_hz 150..1400, p2=curve 0:linear 1:exp)
+fn demo_pitch_bend_svg(allocator: Allocator, p: params::Params, out: &var string::String, readout: &var string::String, hint: &var string::String) -> mem::Error!void {
+    let f0 = cast<f64>(svg::clamp_i32(p.p0, 150, 1400));
+    let f1 = cast<f64>(svg::clamp_i32(p.p1, 150, 1400));
+    let rising = f1 > f0;
+
+    try svg::begin(allocator, out, 480, 270);
+    try svg::rect(allocator, out, 0.0, 0.0, 480.0, 270.0, 8.0, "var(--sheet)", "var(--rule)", 1.0);
+    try svg::line(allocator, out, 44.0, 42.0, 44.0, 224.0, "var(--rule)", 1.2, "");
+    try svg::line(allocator, out, 44.0, 224.0, 444.0, 224.0, "var(--rule)", 1.2, "");
+
+    try out.append_bytes(allocator, "<path d='M 44 ");
+    for 0..33 |i| {
+        let u = cast<f64>(i) / 32.0;
+        let x = 44.0 + u * 400.0;
+        let hz = if p.p2 != 0 { f0 * math::pow<f64>(f1 / f0, u) } else { svg::lerp(f0, f1, u) };
+        let y = 220.0 - ((hz - 120.0) / 1320.0) * 172.0;
+        if i == 0 {
+            try svg::append_f1(allocator, out, y);
+        } else {
+            try out.append_bytes(allocator, " L ");
+            try svg::append_f1(allocator, out, x);
+            try out.append_byte(allocator, 32);
+            try svg::append_f1(allocator, out, y);
+        }
+    }
+    try out.append_bytes(allocator, "' fill='none' stroke='var(--accent)' stroke-width='3.5' stroke-linecap='round'/>");
+
+    try svg::badge(allocator, out, 304.0, 22.0, 142.0, 24.0, "var(--ink)", "var(--paper)",
+        if rising { "上昇: 獲得・決定・跳躍" } else { "下降: キャンセル・落下" });
+    try svg::text(allocator, out, 44.0, 248.0, 11.0, "start", "var(--muted)", "700", true, "START Hz → END Hz");
+    try svg::end(allocator, out);
+
+    try svg::append_int(allocator, readout, cast<i64>(f0));
+    try readout.append_bytes(allocator, "Hz → ");
+    try svg::append_int(allocator, readout, cast<i64>(f1));
+    try readout.append_bytes(allocator, "Hz (");
+    try readout.append_bytes(allocator, if rising { "上昇ベンド" } else { "下降ベンド" });
+    try readout.append_bytes(allocator, ")");
+
+    try svg::append_int(allocator, hint, cast<i64>(f0));
+    try hint.append_bytes(allocator, "Hzから");
+    try svg::append_int(allocator, hint, cast<i64>(f1));
+    try hint.append_bytes(allocator, "Hzへ動くピッチベンド");
+    return;
+}
+
+// 26: SE Layering (p0=sub_punch, p1=mid_body, p2=noise_transient)
+fn demo_se_layer_svg(allocator: Allocator, p: params::Params, out: &var string::String, readout: &var string::String, hint: &var string::String) -> mem::Error!void {
+    let l1 = p.p0 != 0;
+    let l2 = p.p1 != 0;
+    let l3 = p.p2 != 0;
+
+    try svg::begin(allocator, out, 480, 270);
+    try svg::rect(allocator, out, 0.0, 0.0, 480.0, 270.0, 8.0, "var(--sheet)", "var(--rule)", 1.0);
+
+    try svg::rect(allocator, out, 28.0, 26.0, 424.0, 62.0, 6.0, if l1 { "var(--paper)" } else { "var(--grid)" }, if l1 { "var(--accent)" } else { "var(--rule)" }, 1.5);
+    try svg::text(allocator, out, 42.0, 50.0, 12.0, "start", "var(--ink)", "700", false, "1. 低音の芯 (サブベース下降)");
+    if l1 {
+        try out.append_bytes(allocator, "<path d='M 250 57 Q 280 34 310 57 T 370 57 T 430 57' fill='none' stroke='var(--accent)' stroke-width='3'/>");
+    }
+
+    try svg::rect(allocator, out, 28.0, 102.0, 424.0, 62.0, 6.0, if l2 { "var(--paper)" } else { "var(--grid)" }, if l2 { "var(--accent)" } else { "var(--rule)" }, 1.5);
+    try svg::text(allocator, out, 42.0, 126.0, 12.0, "start", "var(--ink)", "700", false, "2. 中域の質感 (打撃ボディ)");
+    if l2 {
+        try out.append_bytes(allocator, "<path d='M 250 133 L 265 114 L 280 152 L 295 118 L 315 148 L 340 124 L 370 138 L 430 133' fill='none' stroke='var(--ink)' stroke-width='2.5'/>");
+    }
+
+    try svg::rect(allocator, out, 28.0, 178.0, 424.0, 62.0, 6.0, if l3 { "var(--paper)" } else { "var(--grid)" }, if l3 { "var(--accent)" } else { "var(--rule)" }, 1.5);
+    try svg::text(allocator, out, 42.0, 202.0, 12.0, "start", "var(--ink)", "700", false, "3. 高域の衝撃 (短いノイズ)");
+    if l3 {
+        try out.append_bytes(allocator, "<path d='M 250 209 L 258 188 L 264 230 L 272 192 L 280 226 L 290 200 L 304 216 L 328 209 L 430 209' fill='none' stroke='var(--accent)' stroke-width='2'/>");
+    }
+    try svg::end(allocator, out);
+
+    var n: i64 = 0;
+    if l1 { n = n + 1; }
+    if l2 { n = n + 1; }
+    if l3 { n = n + 1; }
+    try readout.append_bytes(allocator, "レイヤー ");
+    try svg::append_int(allocator, readout, n);
+    try readout.append_bytes(allocator, "/3 合成");
+    try hint.append_bytes(allocator, "低音の芯＋中域の質感＋短い高域ノイズを3層レイヤーで重ねた打撃SE");
+    return;
+}
+
+// 27: Ducking (p0=depth 0..90)
+fn demo_ducking_svg(allocator: Allocator, p: params::Params, out: &var string::String, readout: &var string::String, hint: &var string::String) -> mem::Error!void {
+    let depth = svg::clamp_i32(p.p0, 0, 90);
+    let dip = cast<f64>(depth) / 100.0;
+
+    try svg::begin(allocator, out, 480, 270);
+    try svg::rect(allocator, out, 0.0, 0.0, 480.0, 270.0, 8.0, "var(--sheet)", "var(--rule)", 1.0);
+
+    // SE burst window at center
+    try svg::rect(allocator, out, 196.0, 36.0, 88.0, 184.0, 6.0, "var(--paper)", "var(--accent)", 1.5);
+    try svg::text(allocator, out, 240.0, 56.0, 11.0, "middle", "var(--accent)", "800", true, "SE / VOICE");
+
+    // BGM gain envelope curve dipping during SE
+    let base_y = 92.0;
+    let dip_y = base_y + dip * 110.0;
+    try out.append_bytes(allocator, "<path d='M 32 92 L 184 92 Q 198 92 206 ");
+    try svg::append_f1(allocator, out, dip_y);
+    try out.append_bytes(allocator, " L 276 ");
+    try svg::append_f1(allocator, out, dip_y);
+    try out.append_bytes(allocator, " Q 312 ");
+    try svg::append_f1(allocator, out, dip_y);
+    try out.append_bytes(allocator, " 346 92 L 448 92' fill='none' stroke='var(--ink)' stroke-width='3.5' stroke-linecap='round'/>");
+
+    try svg::text(allocator, out, 36.0, 82.0, 11.0, "start", "var(--ink)", "700", true, "BGM VOLUME");
+    try svg::text(allocator, out, 240.0, 244.0, 12.0, "middle", "var(--muted)", "600", false,
+        if depth < 15 { "BGMとSEがぶつかり主役の音が埋もれる" } else { "SEの瞬間だけBGMを自動で凹ませて明瞭にする" });
+    try svg::end(allocator, out);
+
+    try readout.append_bytes(allocator, "ダッキング深さ -");
+    try svg::append_int(allocator, readout, cast<i64>(depth));
+    try readout.append_bytes(allocator, "%");
+    try hint.append_bytes(allocator, "重要SEやセリフの発火時だけBGMを");
+    try svg::append_int(allocator, hint, cast<i64>(depth));
+    try hint.append_bytes(allocator, "%下げるダッキングを入れる");
+    return;
+}
+
+// 28: Pitch variation (p0=spread 0..15)
+fn demo_pitch_var_svg(allocator: Allocator, p: params::Params, out: &var string::String, readout: &var string::String, hint: &var string::String) -> mem::Error!void {
+    let spread = svg::clamp_i32(p.p0, 0, 15);
+    let offsets = [6]f64{ 0.0, 0.72, -0.58, 0.41, -0.85, 0.25 };
+
+    try svg::begin(allocator, out, 480, 270);
+    try svg::rect(allocator, out, 0.0, 0.0, 480.0, 270.0, 8.0, "var(--sheet)", "var(--rule)", 1.0);
+    try svg::line(allocator, out, 36.0, 134.0, 444.0, 134.0, "var(--rule)", 1.2, "4 4");
+
+    for 0..6 |i| {
+        let bx = 54.0 + cast<f64>(i) * 64.0;
+        let delta = offsets[i] * cast<f64>(spread) * 4.0;
+        let h = 62.0 + delta;
+        try svg::rect(allocator, out, bx, 196.0 - h, 42.0, h, 5.0, if spread == 0 { "var(--muted)" } else { "var(--accent)" }, "", 0.0);
+        try svg::text(allocator, out, bx + 21.0, 218.0, 10.0, "middle", "var(--muted)", "700", true, "#");
+    }
+    try svg::text(allocator, out, 240.0, 246.0, 12.0, "middle", "var(--ink)", "700", false,
+        if spread == 0 { "6連打が完全一致 (マシンガン臭い)" } else { "1発ごとに微細な音程ゆらぎで自然な連打" });
+    try svg::end(allocator, out);
+
+    try readout.append_bytes(allocator, "ピッチゆらぎ ±");
+    try svg::append_int(allocator, readout, cast<i64>(spread));
+    try readout.append_bytes(allocator, "%");
+    try hint.append_bytes(allocator, "連打SEや足音に再生ごと±");
+    try svg::append_int(allocator, hint, cast<i64>(spread));
+    try hint.append_bytes(allocator, "%のピッチランダム化を掛ける");
+    return;
+}
+
+// 29: Foley vs Synth (p0=mode 0:synth 1:foley)
+fn demo_foley_synth_svg(allocator: Allocator, p: params::Params, out: &var string::String, readout: &var string::String, hint: &var string::String) -> mem::Error!void {
+    let foley = p.p0 != 0;
+    try svg::begin(allocator, out, 480, 270);
+    try svg::rect(allocator, out, 0.0, 0.0, 480.0, 270.0, 8.0, "var(--sheet)", "var(--rule)", 1.0);
+
+    if !foley {
+        try out.append_bytes(allocator, "<path d='M 36 135 Q 76 55 116 135 T 196 135 T 276 135 T 356 135 T 436 135' fill='none' stroke='var(--accent)' stroke-width='3.2'/>");
+        try svg::badge(allocator, out, 36.0, 24.0, 168.0, 24.0, "var(--ink)", "var(--paper)", "シンセSE (記号・電子)");
+        try svg::text(allocator, out, 240.0, 232.0, 12.0, "middle", "var(--muted)", "600", false, "明快でUI・レトロ・SFに合う純音波形");
+    } else {
+        try out.append_bytes(allocator, "<path d='M 36 135 L 54 118 L 68 158 L 82 62 L 96 196 L 112 88 L 128 176 L 146 106 L 166 154 L 190 122 L 220 144 L 260 130 L 320 138 L 436 135' fill='none' stroke='var(--accent)' stroke-width='2.6'/>");
+        try svg::badge(allocator, out, 36.0, 24.0, 178.0, 24.0, "var(--accent)", "#ffffff", "フォーリー寄り (質感・生音)");
+        try svg::text(allocator, out, 240.0, 232.0, 12.0, "middle", "var(--muted)", "600", false, "木・紙・布のような不規則な倍音と質感");
+    }
+    try svg::end(allocator, out);
+
+    try readout.append_bytes(allocator, if foley { "フォーリー系 (生音・物質の質感)" } else { "シンセ系 (電子・ゲーム記号)" });
+    try hint.append_bytes(allocator, if foley { "電子音ではなく紙や木のようなフォーリー系SEで統一する" } else { "明快で分かりやすいシンセSE(記号系)で統一する" });
+    return;
+}
+
+// ---- Kizu DSP PCM Synthesizer (Float32 LE @ 22050Hz) ----------------------
+
+pub fn synth_pcm(allocator: Allocator, word_id: i32, p: params::Params, out: &var string::String) -> mem::Error!void {
+    let sr = cast<f64>(sample_rate());
+    let tau = math::tau<f64>();
+    var seed: u64 = 123456789;
+
+    if word_id == 18 {
+        // BPM groove: 8 eighth-notes (4 beats)
+        let bpm = cast<f64>(svg::clamp_i32(p.p0, 70, 175));
+        let step_sec = 30.0 / bpm;
+        let total_sec = step_sec * 8.0;
+        let n = cast<i64>(total_sec * sr);
+        let notes = [8]f64{ 60.0, 64.0, 67.0, 72.0, 67.0, 64.0, 62.0, 67.0 };
+        for 0..n |i| {
+            let t = cast<f64>(i) / sr;
+            let step = cast<i64>(t / step_sec);
+            let st = t - cast<f64>(step) * step_sec;
+            let freq = midi_to_hz(notes[step % 8]);
+            let env = math::exp<f64>(-st * 11.0);
+            var s = osc_tri(t * freq) * env * 0.55;
+            if (step % 2) == 0 {
+                // Kick on quarter beats
+                let k_freq = 120.0 * math::exp<f64>(-st * 28.0) + 42.0;
+                s = s + math::sin<f64>(tau * k_freq * st) * math::exp<f64>(-st * 16.0) * 0.7;
+            } else {
+                // Hi-hat tick
+                s = s + next_noise(&var seed) * math::exp<f64>(-st * 55.0) * 0.25;
+            }
+            try push_f32_le(allocator, out, s);
+        }
+        return;
+    }
+
+    if word_id == 19 {
+        // Lowpass / Highpass filter on rich saw chord arpeggio
+        let mode = svg::clamp_i32(p.p0, 0, 2);
+        let cut = svg::clamp_i32(p.p1, 15, 95);
+        let cutoff = 140.0 * math::pow<f64>(45.0, cast<f64>(cut - 15) / 80.0);
+        let rc = 1.0 / (tau * cutoff);
+        let dt = 1.0 / sr;
+        let alpha_lp = dt / (rc + dt);
+        let alpha_hp = rc / (rc + dt);
+        let n = cast<i64>(1.8 * sr);
+        var lp_y = 0.0;
+        var hp_y = 0.0;
+        var prev_x = 0.0;
+        let arp = [4]f64{ 48.0, 55.0, 60.0, 64.0 };
+        for 0..n |i| {
+            let t = cast<f64>(i) / sr;
+            let idx = cast<i64>(t * 6.0) % 4;
+            let st = t - math::floor<f64>(t * 6.0) / 6.0;
+            let f1 = midi_to_hz(arp[idx]);
+            let f2 = midi_to_hz(arp[idx] + 7.0);
+            let raw = (osc_saw(t * f1) * 0.45 + osc_saw(t * f2) * 0.35 + next_noise(&var seed) * 0.06) * math::exp<f64>(-st * 3.0);
+            lp_y = lp_y + alpha_lp * (raw - lp_y);
+            hp_y = alpha_hp * (hp_y + raw - prev_x);
+            prev_x = raw;
+            var y = raw;
+            if mode == 1 { y = lp_y * 1.4; }
+            else if mode == 2 { y = hp_y * 1.4; }
+            try push_f32_le(allocator, out, y);
+        }
+        return;
+    }
+
+    if word_id == 20 {
+        // Fill-in / Break 4-bar compressed demo (2.2s)
+        let mode = svg::clamp_i32(p.p0, 0, 2);
+        let step_sec = 0.135;
+        let n = cast<i64>(step_sec * 16.0 * sr);
+        for 0..n |i| {
+            let t = cast<f64>(i) / sr;
+            let step = cast<i64>(t / step_sec);
+            let st = t - cast<f64>(step) * step_sec;
+            var s = 0.0;
+            let is_bar4 = step >= 12;
+            if !is_bar4 or mode == 0 {
+                if (step % 2) == 0 {
+                    s = math::sin<f64>(tau * (110.0 * math::exp<f64>(-st * 24.0) + 45.0) * st) * math::exp<f64>(-st * 16.0) * 0.7;
+                } else {
+                    s = next_noise(&var seed) * math::exp<f64>(-st * 38.0) * 0.35;
+                }
+                s = s + osc_tri(t * midi_to_hz(60.0 + cast<f64>(step % 4) * 2.0)) * math::exp<f64>(-st * 10.0) * 0.35;
+            } else if mode == 1 {
+                // Snare + tom ascending fill on steps 12..15
+                let tom_hz = 160.0 + cast<f64>(step - 12) * 85.0;
+                s = math::sin<f64>(tau * tom_hz * st) * math::exp<f64>(-st * 18.0) * 0.65 + next_noise(&var seed) * math::exp<f64>(-st * 28.0) * 0.45;
+            } else {
+                // Break: silent on 12..14, big crash impact on 15
+                if step == 15 {
+                    s = math::sin<f64>(tau * 65.0 * st) * math::exp<f64>(-st * 6.0) * 0.8 + osc_saw(t * 523.25) * math::exp<f64>(-st * 4.0) * 0.5 + next_noise(&var seed) * math::exp<f64>(-st * 10.0) * 0.5;
+                }
+            }
+            try push_f32_le(allocator, out, s);
+        }
+        return;
+    }
+
+    if word_id == 21 {
+        // Intro + loop (2 cycles)
+        let seamless = p.p0 != 0;
+        let step_sec = 0.14;
+        let intro = [4]f64{ 55.0, 59.0, 62.0, 67.0 };
+        let body = [8]f64{ 60.0, 64.0, 67.0, 72.0, 69.0, 67.0, 64.0, 62.0 };
+        let total_steps = 16;
+        let n = cast<i64>(step_sec * cast<f64>(total_steps) * sr);
+        for 0..n |i| {
+            let t = cast<f64>(i) / sr;
+            let step = cast<i64>(t / step_sec);
+            let st = t - cast<f64>(step) * step_sec;
+            var midi = 60.0;
+            if step < 4 {
+                midi = intro[step];
+            } else if step < 12 {
+                midi = body[step - 4];
+            } else if seamless {
+                midi = body[step - 12];
+            } else {
+                midi = intro[step - 12];
+            }
+            let s = osc_tri(t * midi_to_hz(midi)) * math::exp<f64>(-st * 8.0) * 0.65;
+            try push_f32_le(allocator, out, s);
+        }
+        return;
+    }
+
+    if word_id == 22 {
+        // Major / Minor / Sus arpeggio + chord
+        let mode = svg::clamp_i32(p.p0, 0, 2);
+        let third = if mode == 0 { 64.0 } else if mode == 1 { 63.0 } else { 65.0 };
+        let fifth = 67.0;
+        let top = if mode == 2 { 74.0 } else { 72.0 };
+        let notes = [4]f64{ 60.0, third, fifth, top };
+        let n = cast<i64>(1.6 * sr);
+        for 0..n |i| {
+            let t = cast<f64>(i) / sr;
+            let fade = math::exp<f64>(-t * 1.4);
+            var s = 0.0;
+            for 0..4 |k| {
+                let start = cast<f64>(k) * 0.14;
+                if t >= start {
+                    let lt = t - start;
+                    s = s + (math::sin<f64>(tau * midi_to_hz(notes[k]) * lt) * 0.6 + osc_tri(lt * midi_to_hz(notes[k])) * 0.3) * math::exp<f64>(-lt * 2.2) * 0.32;
+                }
+            }
+            try push_f32_le(allocator, out, s * (0.4 + 0.6 * fade));
+        }
+        return;
+    }
+
+    if word_id == 23 {
+        // 4-layer arrangement toggle
+        let bass = p.p0 != 0;
+        let chord = p.p1 != 0;
+        let mel = p.p2 != 0;
+        let drm = p.p3 != 0;
+        let step_sec = 0.16;
+        let n = cast<i64>(step_sec * 12.0 * sr);
+        let mel_n = [6]f64{ 72.0, 74.0, 76.0, 79.0, 76.0, 74.0 };
+        for 0..n |i| {
+            let t = cast<f64>(i) / sr;
+            let step = cast<i64>(t / step_sec);
+            let st = t - cast<f64>(step) * step_sec;
+            var s = 0.0;
+            if bass {
+                let bh = midi_to_hz(if (step % 8) < 4 { 36.0 } else { 41.0 });
+                s = s + math::sin<f64>(tau * bh * t) * 0.45;
+            }
+            if chord {
+                s = s + (osc_tri(t * midi_to_hz(55.0)) + osc_tri(t * midi_to_hz(60.0)) + osc_tri(t * midi_to_hz(64.0))) * 0.14;
+            }
+            if mel {
+                let mh = midi_to_hz(mel_n[step % 6]);
+                s = s + osc_saw(t * mh) * math::exp<f64>(-st * 7.0) * 0.25;
+            }
+            if drm {
+                if (step % 2) == 0 {
+                    s = s + math::sin<f64>(tau * (100.0 * math::exp<f64>(-st * 26.0) + 44.0) * st) * math::exp<f64>(-st * 16.0) * 0.55;
+                } else {
+                    s = s + next_noise(&var seed) * math::exp<f64>(-st * 50.0) * 0.22;
+                }
+            }
+            try push_f32_le(allocator, out, s);
+        }
+        return;
+    }
+
+    if word_id == 24 {
+        // ADSR SE synthesis
+        let atk = cast<f64>(svg::clamp_i32(p.p0, 1, 100)) * 0.003;
+        let dec = cast<f64>(svg::clamp_i32(p.p1, 5, 100)) * 0.003;
+        let sus = cast<f64>(svg::clamp_i32(p.p2, 0, 100)) / 100.0;
+        let rel = cast<f64>(svg::clamp_i32(p.p3, 5, 100)) * 0.004;
+        let dur = atk + dec + 0.22 + rel;
+        let n = cast<i64>(dur * sr);
+        for 0..n |i| {
+            let t = cast<f64>(i) / sr;
+            let env = adsr_value(t, dur, atk, dec, sus, rel);
+            let s = (math::sin<f64>(tau * 587.33 * t) * 0.65 + osc_tri(t * 1174.66) * 0.25) * env;
+            try push_f32_le(allocator, out, s);
+        }
+        return;
+    }
+
+    if word_id == 25 {
+        // Pitch bend SE
+        let f0 = cast<f64>(svg::clamp_i32(p.p0, 150, 1400));
+        let f1 = cast<f64>(svg::clamp_i32(p.p1, 150, 1400));
+        let exp_mode = p.p2 != 0;
+        let dur = 0.36;
+        let n = cast<i64>(dur * sr);
+        var phase = 0.0;
+        for 0..n |i| {
+            let t = cast<f64>(i) / sr;
+            let u = t / dur;
+            let hz = if exp_mode { f0 * math::pow<f64>(f1 / f0, u) } else { svg::lerp(f0, f1, u) };
+            phase = phase + hz / sr;
+            let env = adsr_value(t, dur, 0.005, 0.08, 0.7, 0.12);
+            let s = (math::sin<f64>(tau * phase) * 0.7 + osc_tri(phase * 2.0) * 0.22) * env;
+            try push_f32_le(allocator, out, s);
+        }
+        return;
+    }
+
+    if word_id == 26 {
+        // 3-layer impact SE
+        let l1 = p.p0 != 0;
+        let l2 = p.p1 != 0;
+        let l3 = p.p2 != 0;
+        let dur = 0.42;
+        let n = cast<i64>(dur * sr);
+        var ph1 = 0.0;
+        for 0..n |i| {
+            let t = cast<f64>(i) / sr;
+            var s = 0.0;
+            if l1 {
+                let f = 140.0 * math::exp<f64>(-t * 18.0) + 42.0;
+                ph1 = ph1 + f / sr;
+                s = s + math::sin<f64>(tau * ph1) * math::exp<f64>(-t * 9.0) * 0.75;
+            }
+            if l2 {
+                s = s + osc_tri(t * 280.0) * math::exp<f64>(-t * 22.0) * 0.55;
+            }
+            if l3 {
+                s = s + next_noise(&var seed) * math::exp<f64>(-t * 42.0) * 0.55;
+            }
+            try push_f32_le(allocator, out, s);
+        }
+        return;
+    }
+
+    if word_id == 27 {
+        // Ducking: BGM pad + SE burst at 0.55s..1.05s
+        let depth = cast<f64>(svg::clamp_i32(p.p0, 0, 90)) / 100.0;
+        let dur = 1.8;
+        let n = cast<i64>(dur * sr);
+        for 0..n |i| {
+            let t = cast<f64>(i) / sr;
+            var duck = 1.0;
+            if t >= 0.50 and t < 1.05 {
+                duck = 1.0 - depth;
+            } else if t >= 1.05 and t < 1.35 {
+                let u = (t - 1.05) / 0.30;
+                duck = svg::lerp(1.0 - depth, 1.0, u);
+            }
+            let bgm = (osc_saw(t * 130.81) * 0.25 + osc_saw(t * 196.0) * 0.22 + osc_tri(t * 261.63) * 0.28) * duck;
+            var se = 0.0;
+            if t >= 0.55 and t < 1.00 {
+                let st = t - 0.55;
+                let freq = if st < 0.14 { 880.0 } else { 1174.66 };
+                se = math::sin<f64>(tau * freq * st) * math::exp<f64>(-st * 7.5) * 0.7;
+            }
+            try push_f32_le(allocator, out, bgm + se);
+        }
+        return;
+    }
+
+    if word_id == 28 {
+        // Pitch variation 6-shot rapid burst
+        let spread = cast<f64>(svg::clamp_i32(p.p0, 0, 15)) / 100.0;
+        let offsets = [6]f64{ 0.0, 0.72, -0.58, 0.41, -0.85, 0.25 };
+        let gap = 0.13;
+        let n = cast<i64>(gap * 6.5 * sr);
+        for 0..n |i| {
+            let t = cast<f64>(i) / sr;
+            let k = cast<i64>(t / gap);
+            var s = 0.0;
+            if k < 6 {
+                let st = t - cast<f64>(k) * gap;
+                let mult = 1.0 + offsets[k] * spread;
+                let hz = 420.0 * mult * math::exp<f64>(-st * 12.0) + 120.0 * mult;
+                s = (math::sin<f64>(tau * hz * st) * 0.55 + next_noise(&var seed) * math::exp<f64>(-st * 55.0) * 0.35) * math::exp<f64>(-st * 22.0);
+            }
+            try push_f32_le(allocator, out, s);
+        }
+        return;
+    }
+
+    if word_id == 29 {
+        // Foley vs Synth
+        let foley = p.p0 != 0;
+        let dur = 0.38;
+        let n = cast<i64>(dur * sr);
+        var lp = 0.0;
+        for 0..n |i| {
+            let t = cast<f64>(i) / sr;
+            var s = 0.0;
+            if !foley {
+                s = math::sin<f64>(tau * 880.0 * t) * math::exp<f64>(-t * 14.0) * 0.7 + math::sin<f64>(tau * 1320.0 * t) * math::exp<f64>(-t * 18.0) * 0.3;
+            } else {
+                // Wood-tap / paper snap foley synthesis
+                let raw = next_noise(&var seed);
+                lp = lp + 0.18 * (raw - lp);
+                let wood = math::sin<f64>(tau * 310.0 * t) * math::exp<f64>(-t * 36.0) + math::sin<f64>(tau * 740.0 * t) * math::exp<f64>(-t * 48.0) * 0.5;
+                s = wood * 0.55 + lp * math::exp<f64>(-t * 32.0) * 0.9;
+            }
+            try push_f32_le(allocator, out, s);
+        }
+        return;
+    }
+
+    // Auxiliary audio cues for video (12, 13, 17) & game feel (42, 43, 44, 46, 47)
+    let dur = if word_id == 42 or word_id == 47 { 0.28 } else { 0.45 };
+    let n = cast<i64>(dur * sr);
+    for 0..n |i| {
+        let t = cast<f64>(i) / sr;
+        var s = 0.0;
+        if word_id == 42 {
+            // Impact hitstop crunch
+            let heavy = cast<f64>(svg::clamp_i32(p.p0, 0, 8)) / 8.0;
+            s = math::sin<f64>(tau * (130.0 - 40.0 * heavy) * t) * math::exp<f64>(-t * 14.0) * (0.4 + 0.5 * heavy) + next_noise(&var seed) * math::exp<f64>(-t * 36.0) * 0.45;
+        } else if word_id == 47 {
+            // Coin/hit juice pop
+            let f = 520.0 + t * 1400.0;
+            s = math::sin<f64>(tau * f * t) * math::exp<f64>(-t * 12.0) * 0.65;
+        } else {
+            // Crisp UI / beat click cue
+            s = math::sin<f64>(tau * 660.0 * t) * math::exp<f64>(-t * 18.0) * 0.55;
+        }
+        try push_f32_le(allocator, out, s);
+    }
+    return;
+}

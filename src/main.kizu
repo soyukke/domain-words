@@ -1,0 +1,13 @@
+// Entry point for domain-words: native CLI for checks, wasm32-browser for web app.
+import domain_words::browser;
+import domain_words::cli;
+import std;
+
+pub fn main() -> !void {
+    comptime if std::target::is_browser() {
+        browser::start();
+    } else comptime if std::target::is_native() {
+        try cli::run();
+    }
+    return;
+}

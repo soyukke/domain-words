@@ -1,0 +1,35 @@
+import std::machine;
+import std::mem;
+import std::testing;
+
+fn no_problems(table: &machine::Table) -> void {
+    let allocator = mem::page_allocator();
+    var problems = table.problems(allocator) catch return;
+    defer problems.deinit(allocator);
+    if problems.at(0) |line| {
+        let bytes = line.as_bytes();
+        testing::fail(bytes);
+    }
+    return;
+}
+
+test "all UI state machines reach every state without deadlocks" {
+    let allocator = mem::page_allocator();
+    let panel = try machine::answers<PanelTab, PanelEvent, Outcome>(allocator, panel_next, panel_outcome, PanelTab::Controls, panel_end);
+    defer panel.deinit(allocator);
+    no_problems(&panel);
+
+    let drawer = try machine::answers<Drawer, DrawerEvent, Outcome>(allocator, drawer_next, drawer_outcome, Drawer::Closed, drawer_end);
+    defer drawer.deinit(allocator);
+    no_problems(&drawer);
+
+    let playback = try machine::answers<Playback, PlaybackEvent, Outcome>(allocator, playback_next, playback_outcome, Playback::Idle, playback_end);
+    defer playback.deinit(allocator);
+    no_problems(&playback);
+}
+
+test "selecting a word resets tab to Controls and stops playback" {
+    testing::expect(panel_next(PanelTab::Compare, PanelEvent::SelectWord) == PanelTab::Controls);
+    testing::expect(drawer_next(Drawer::Open, DrawerEvent::PickWord) == Drawer::Closed);
+    testing::expect(playback_next(Playback::Playing, PlaybackEvent::WordChanged) == Playback::Idle);
+}

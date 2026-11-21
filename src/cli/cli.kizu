@@ -1,0 +1,43 @@
+// Native CLI verification tool for domain-words.
+import domain_words::demos;
+import domain_words::demos::params;
+import std::fmt;
+import std::mem;
+import std::string;
+
+pub fn run() -> mem::Error!void {
+    let allocator = mem::page_allocator();
+    var svg_bytes_total: i64 = 0;
+    var pcm_bytes_total: i64 = 0;
+    let total = demos::total_words();
+    for 0..cast<i64>(total) |i| {
+        let id = cast<i32>(i);
+        var svg_out = string::new(allocator);
+        defer svg_out.deinit(allocator);
+        var readout = string::new(allocator);
+        defer readout.deinit(allocator);
+        var hint = string::new(allocator);
+        defer hint.deinit(allocator);
+        let p = params::Params { p0: 50, p1: 1, p2: 1, p3: 1, tick: 320, action: 0 };
+        try demos::render(allocator, id, p, &var svg_out, &var readout, &var hint);
+        svg_bytes_total = svg_bytes_total + svg_out.len();
+        if demos::has_audio(id) {
+            var pcm = string::new(allocator);
+            defer pcm.deinit(allocator);
+            try demos::synth_pcm(allocator, id, p, &var pcm);
+            pcm_bytes_total = pcm_bytes_total + pcm.len();
+        }
+    }
+    var summary = string::new(allocator);
+    defer summary.deinit(allocator);
+    try summary.append_bytes(allocator, "verified ");
+    try fmt::append_i64(allocator, &var summary, cast<i64>(total));
+    try summary.append_bytes(allocator, " demos (svg=");
+    try fmt::append_i64(allocator, &var summary, svg_bytes_total);
+    try summary.append_bytes(allocator, "B, pcm=");
+    try fmt::append_i64(allocator, &var summary, pcm_bytes_total);
+    try summary.append_bytes(allocator, "B)");
+    let sb = summary.as_bytes();
+    print(sb);
+    return;
+}

@@ -1,0 +1,408 @@
+// Category 2: Video editing & structure demos (IDs 12..17).
+import domain_words::demos::params;
+import domain_words::svg;
+import std::mem;
+import std::string;
+
+pub fn render(
+    allocator: Allocator,
+    word_id: i32,
+    p: params::Params,
+    out_svg: &var string::String,
+    out_readout: &var string::String,
+    out_hint: &var string::String,
+) -> mem::Error!void {
+    if word_id == 12 {
+        try demo_jump_cut(allocator, p, out_svg, out_readout, out_hint);
+    } else if word_id == 13 {
+        try demo_jl_cut(allocator, p, out_svg, out_readout, out_hint);
+    } else if word_id == 14 {
+        try demo_b_roll(allocator, p, out_svg, out_readout, out_hint);
+    } else if word_id == 15 {
+        try demo_video_hook(allocator, p, out_svg, out_readout, out_hint);
+    } else if word_id == 16 {
+        try demo_safe_area(allocator, p, out_svg, out_readout, out_hint);
+    } else {
+        try demo_pacing_beat(allocator, p, out_svg, out_readout, out_hint);
+    }
+    return;
+}
+
+// 12: Jump cut (p0=cut_silence 0/1, tick=0..1000)
+fn demo_jump_cut(
+    allocator: Allocator,
+    p: params::Params,
+    out: &var string::String,
+    readout: &var string::String,
+    hint: &var string::String,
+) -> mem::Error!void {
+    let cut = p.p0 != 0;
+    let t = cast<f64>(svg::clamp_i32(p.tick % 1000, 0, 999)) / 1000.0;
+
+    try svg::begin(allocator, out, 480, 270);
+    try svg::rect(allocator, out, 0.0, 0.0, 480.0, 270.0, 8.0, "var(--sheet)", "var(--rule)", 1.0);
+
+    // Top mini preview monitor
+    var speaking = true;
+    var clip_idx: i32 = 0;
+    if !cut {
+        if t < 0.20 { speaking = true; clip_idx = 0; }
+        else if t < 0.36 { speaking = false; clip_idx = 0; }
+        else if t < 0.56 { speaking = true; clip_idx = 1; }
+        else if t < 0.74 { speaking = false; clip_idx = 1; }
+        else { speaking = true; clip_idx = 2; }
+    } else {
+        if t < 0.33 { clip_idx = 0; }
+        else if t < 0.66 { clip_idx = 1; }
+        else { clip_idx = 2; }
+        speaking = true;
+    }
+
+    try svg::rect(allocator, out, 118.0, 18.0, 244.0, 108.0, 8.0, "#1a1a18", "var(--rule)", 1.2);
+    let head_x = 240.0 + (if clip_idx == 1 { 6.0 } else if clip_idx == 2 { -5.0 } else { 0.0 });
+    try svg::circle(allocator, out, head_x, 58.0, 20.0, if speaking { "#f2f0e9" } else { "#68665e" }, "", 0.0);
+    try svg::rect(allocator, out, head_x - 28.0, 82.0, 56.0, 32.0, 10.0, if speaking { "#f2f0e9" } else { "#68665e" }, "", 0.0);
+    if speaking {
+        try svg::badge(allocator, out, 276.0, 28.0, 76.0, 20.0, "#ff4d00", "#ffffff", "発話中");
+    } else {
+        try svg::badge(allocator, out, 276.0, 28.0, 76.0, 20.0, "#45443d", "#a8a69c", "無音・間");
+    }
+
+    // Timeline tracks
+    try svg::text(allocator, out, 24.0, 152.0, 11.0, "start", "var(--muted)", "700", true, "TIMELINE");
+    if !cut {
+        try svg::rect(allocator, out, 24.0, 162.0, 86.0, 44.0, 4.0, "var(--ink)", "", 0.0);
+        try svg::rect(allocator, out, 112.0, 162.0, 68.0, 44.0, 4.0, "var(--grid)", "var(--rule)", 1.0);
+        try svg::rect(allocator, out, 182.0, 162.0, 86.0, 44.0, 4.0, "var(--ink)", "", 0.0);
+        try svg::rect(allocator, out, 270.0, 162.0, 76.0, 44.0, 4.0, "var(--grid)", "var(--rule)", 1.0);
+        try svg::rect(allocator, out, 348.0, 162.0, 108.0, 44.0, 4.0, "var(--ink)", "", 0.0);
+        try svg::text(allocator, out, 146.0, 188.0, 10.0, "middle", "var(--muted)", "700", false, "えーっと");
+        try svg::text(allocator, out, 308.0, 188.0, 10.0, "middle", "var(--muted)", "700", false, "無音");
+    } else {
+        try svg::rect(allocator, out, 24.0, 162.0, 94.0, 44.0, 4.0, "var(--ink)", "", 0.0);
+        try svg::rect(allocator, out, 121.0, 162.0, 94.0, 44.0, 4.0, "var(--ink)", "", 0.0);
+        try svg::rect(allocator, out, 218.0, 162.0, 110.0, 44.0, 4.0, "var(--ink)", "", 0.0);
+        try svg::line(allocator, out, 119.5, 156.0, 119.5, 212.0, "var(--accent)", 2.5, "");
+        try svg::line(allocator, out, 216.5, 156.0, 216.5, 212.0, "var(--accent)", 2.5, "");
+        try svg::rect(allocator, out, 336.0, 162.0, 120.0, 44.0, 4.0, "var(--paper)", "var(--accent)", 1.2);
+        try svg::text(allocator, out, 396.0, 188.0, 11.0, "middle", "var(--accent)", "700", true, "-34% 短縮");
+    }
+
+    // Playhead
+    let span = if cut { 304.0 } else { 432.0 };
+    let px = 24.0 + t * span;
+    try svg::line(allocator, out, px, 154.0, px, 224.0, "var(--accent)", 2.0, "");
+    try svg::text(allocator, out, 24.0, 248.0, 11.0, "start", "var(--muted)", "600", false,
+        if cut { "無音を詰めて同じ内容を短くテンポ良く見せる" } else { "無音や言い淀みが残ると視聴テンポが落ちる" });
+    try svg::end(allocator, out);
+
+    try readout.append_bytes(allocator, if cut { "ジャンプカット ON / 尺 6.6秒 (-34%)" } else { "無編集 / 尺 10.0秒 (無音あり)" });
+    try hint.append_bytes(allocator, "0.3秒以上の無音や言い淀みを詰めるジャンプカットを入れる");
+    return;
+}
+
+// 13: J-cut & L-cut (p0=mode 0:straight 1:J-cut 2:L-cut, tick=0..1000)
+fn demo_jl_cut(
+    allocator: Allocator,
+    p: params::Params,
+    out: &var string::String,
+    readout: &var string::String,
+    hint: &var string::String,
+) -> mem::Error!void {
+    let mode = svg::clamp_i32(p.p0, 0, 2);
+    let t = cast<f64>(svg::clamp_i32(p.tick % 1000, 0, 999)) / 1000.0;
+
+    let v_cut = 0.50;
+    let a_cut = if mode == 1 { 0.34 } else if mode == 2 { 0.66 } else { 0.50 };
+    let is_v_b = t >= v_cut;
+    let is_a_b = t >= a_cut;
+
+    try svg::begin(allocator, out, 480, 270);
+    try svg::rect(allocator, out, 0.0, 0.0, 480.0, 270.0, 8.0, "var(--sheet)", "var(--rule)", 1.0);
+
+    // Monitor showing active video & audio scene
+    try svg::rect(allocator, out, 24.0, 18.0, 210.0, 96.0, 8.0, if is_v_b { "#264653" } else { "#2c2b28" }, "", 0.0);
+    try svg::text(allocator, out, 129.0, 62.0, 16.0, "middle", "#faf9f3", "800", false, if is_v_b { "映像: シーン B" } else { "映像: シーン A" });
+    try svg::text(allocator, out, 129.0, 86.0, 11.0, "middle", "#cfccc0", "600", true, if is_v_b { "OUTDOOR" } else { "INTERVIEW" });
+
+    try svg::rect(allocator, out, 246.0, 18.0, 210.0, 96.0, 8.0, "var(--paper)", if is_a_b { "var(--accent)" } else { "var(--rule)" }, 1.5);
+    try svg::text(allocator, out, 351.0, 62.0, 15.0, "middle", "var(--ink)", "800", false, if is_a_b { "音声: シーン B" } else { "音声: シーン A" });
+    try svg::text(allocator, out, 351.0, 86.0, 11.0, "middle", "var(--accent)", "700", false,
+        if is_v_b != is_a_b { "映像と音が重なって自然に橋渡し" } else { "映像と音声が同じ場面" });
+
+    // Video & Audio timeline bars
+    let x0 = 64.0;
+    let w = 392.0;
+    try svg::text(allocator, out, 24.0, 156.0, 11.0, "start", "var(--muted)", "700", true, "VIDEO");
+    try svg::rect(allocator, out, x0, 136.0, w * v_cut - 2.0, 32.0, 4.0, "#2c2b28", "", 0.0);
+    try svg::rect(allocator, out, x0 + w * v_cut + 2.0, 136.0, w * (1.0 - v_cut) - 2.0, 32.0, 4.0, "#264653", "", 0.0);
+    try svg::text(allocator, out, x0 + 60.0, 156.0, 11.0, "middle", "#faf9f3", "700", false, "画 A");
+    try svg::text(allocator, out, x0 + w - 60.0, 156.0, 11.0, "middle", "#faf9f3", "700", false, "画 B");
+
+    try svg::text(allocator, out, 24.0, 200.0, 11.0, "start", "var(--muted)", "700", true, "AUDIO");
+    try svg::rect(allocator, out, x0, 180.0, w * a_cut - 2.0, 32.0, 4.0, "#5e5c54", "", 0.0);
+    try svg::rect(allocator, out, x0 + w * a_cut + 2.0, 180.0, w * (1.0 - a_cut) - 2.0, 32.0, 4.0, "#ff4d00", "", 0.0);
+    try svg::text(allocator, out, x0 + 50.0, 200.0, 11.0, "middle", "#faf9f3", "700", false, "音 A");
+    try svg::text(allocator, out, x0 + w - 50.0, 200.0, 11.0, "middle", "#ffffff", "700", false, "音 B");
+
+    // Highlight J or L shape
+    if mode == 1 {
+        try svg::badge(allocator, out, x0 + w * a_cut, 224.0, 140.0, 22.0, "var(--accent)", "#ffffff", "Jカット: 音Bが先行");
+    } else if mode == 2 {
+        try svg::badge(allocator, out, x0 + w * v_cut, 224.0, 146.0, 22.0, "var(--ink)", "var(--paper)", "Lカット: 音Aが余韻残し");
+    } else {
+        try svg::badge(allocator, out, x0 + w * 0.5 - 64.0, 224.0, 128.0, 22.0, "var(--rule)", "var(--ink)", "同時切替 (ストレート)");
+    }
+
+    let px = x0 + t * w;
+    try svg::line(allocator, out, px, 128.0, px, 220.0, "var(--accent)", 2.0, "");
+    try svg::end(allocator, out);
+
+    if mode == 1 {
+        try readout.append_bytes(allocator, "Jカット (音先) / 次の場面の音が先に流れて滑らか");
+        try hint.append_bytes(allocator, "次のシーンの音を0.5秒先に流し始めるJカットで繋ぐ");
+    } else if mode == 2 {
+        try readout.append_bytes(allocator, "Lカット (音残し) / 前の話を残しつつ次の画へ");
+        try hint.append_bytes(allocator, "前のシーンの音声を残したまま次の映像へ移るLカットで繋ぐ");
+    } else {
+        try readout.append_bytes(allocator, "ストレートカット / 画と音を同時に切り替え");
+        try hint.append_bytes(allocator, "場面転換の境目にJカットまたはLカットを入れる");
+    }
+    return;
+}
+
+// 14: B-roll & insert (p0=use_broll 0/1, tick=0..1000)
+fn demo_b_roll(
+    allocator: Allocator,
+    p: params::Params,
+    out: &var string::String,
+    readout: &var string::String,
+    hint: &var string::String,
+) -> mem::Error!void {
+    let use_b = p.p0 != 0;
+    let t = cast<f64>(svg::clamp_i32(p.tick % 1000, 0, 999)) / 1000.0;
+    let in_b1 = use_b and t >= 0.22 and t < 0.48;
+    let in_b2 = use_b and t >= 0.64 and t < 0.88;
+
+    try svg::begin(allocator, out, 480, 270);
+    try svg::rect(allocator, out, 0.0, 0.0, 480.0, 270.0, 8.0, "var(--sheet)", "var(--rule)", 1.0);
+
+    // Preview window
+    try svg::rect(allocator, out, 108.0, 16.0, 264.0, 114.0, 8.0, if in_b1 { "#283618" } else if in_b2 { "#1d3557" } else { "#20201e" }, "", 0.0);
+    if in_b1 {
+        try svg::rect(allocator, out, 134.0, 38.0, 110.0, 72.0, 5.0, "#dda15e", "", 0.0);
+        try svg::text(allocator, out, 304.0, 76.0, 13.0, "middle", "#fefae0", "800", false, "Bロール: 実画面");
+    } else if in_b2 {
+        try svg::circle(allocator, out, 184.0, 74.0, 32.0, "#e63946", "", 0.0);
+        try svg::text(allocator, out, 298.0, 76.0, 13.0, "middle", "#f1faee", "800", false, "インサート: 手元UP");
+    } else {
+        try svg::circle(allocator, out, 240.0, 58.0, 20.0, "#cfccc0", "", 0.0);
+        try svg::rect(allocator, out, 212.0, 82.0, 56.0, 34.0, 10.0, "#cfccc0", "", 0.0);
+        try svg::text(allocator, out, 240.0, 122.0, 10.0, "middle", "#a8a69c", "700", true, "A-ROLL (TALKING)");
+    }
+
+    // Track 2: B-roll overlay
+    let x0 = 64.0;
+    let w = 392.0;
+    try svg::text(allocator, out, 22.0, 162.0, 10.0, "start", "var(--accent)", "700", true, "B-ROLL");
+    try svg::rect(allocator, out, x0, 144.0, w, 28.0, 4.0, "var(--paper)", "var(--rule)", 1.0);
+    if use_b {
+        try svg::rect(allocator, out, x0 + w * 0.22, 146.0, w * 0.26, 24.0, 4.0, "var(--accent)", "", 0.0);
+        try svg::text(allocator, out, x0 + w * 0.35, 162.0, 10.0, "middle", "#ffffff", "700", false, "操作画面");
+        try svg::rect(allocator, out, x0 + w * 0.64, 146.0, w * 0.24, 24.0, 4.0, "var(--accent)", "", 0.0);
+        try svg::text(allocator, out, x0 + w * 0.76, 162.0, 10.0, "middle", "#ffffff", "700", false, "手元UP");
+    }
+
+    // Track 1: A-roll continuous speech
+    try svg::text(allocator, out, 22.0, 200.0, 10.0, "start", "var(--muted)", "700", true, "A-ROLL");
+    try svg::rect(allocator, out, x0, 182.0, w, 30.0, 4.0, "var(--ink)", "", 0.0);
+    try svg::text(allocator, out, x0 + w * 0.5, 201.0, 11.0, "middle", "var(--paper)", "600", false, "ナレーション・解説トーク (通し)");
+
+    let px = x0 + t * w;
+    try svg::line(allocator, out, px, 138.0, px, 220.0, "var(--accent)", 2.0, "");
+    try svg::text(allocator, out, 240.0, 248.0, 11.0, "middle", "var(--muted)", "600", true,
+        if use_b { "VISUAL CUTS: 5 (画変わりあり)" } else { "VISUAL CUTS: 1 (固定画面のまま)" });
+    try svg::end(allocator, out);
+
+    try readout.append_bytes(allocator, if use_b { "Bロールあり / 話を止めず画変わりで理解を補助" } else { "Aロール固定 / ずっと同じ絵で単調になりやすい" });
+    try hint.append_bytes(allocator, "解説が3秒以上続く箇所に操作画面や手元アップのBロールを差し込む");
+    return;
+}
+
+// 15: Video hook (p0=structure 0:slow_intro 1:hook_first)
+fn demo_video_hook(
+    allocator: Allocator,
+    p: params::Params,
+    out: &var string::String,
+    readout: &var string::String,
+    hint: &var string::String,
+) -> mem::Error!void {
+    let hooked = p.p0 != 0;
+
+    try svg::begin(allocator, out, 480, 270);
+    try svg::rect(allocator, out, 0.0, 0.0, 480.0, 270.0, 8.0, "var(--sheet)", "var(--rule)", 1.0);
+
+    // Retention curve graph
+    try svg::text(allocator, out, 36.0, 28.0, 11.0, "start", "var(--muted)", "700", true, "RETENTION %");
+    try svg::line(allocator, out, 36.0, 42.0, 36.0, 174.0, "var(--rule)", 1.2, "");
+    try svg::line(allocator, out, 36.0, 174.0, 452.0, 174.0, "var(--rule)", 1.2, "");
+    // 3s vertical marker
+    try svg::line(allocator, out, 108.0, 42.0, 108.0, 174.0, "var(--accent)", 1.2, "4 3");
+    try svg::text(allocator, out, 114.0, 54.0, 10.0, "start", "var(--accent)", "700", true, "3s");
+
+    if !hooked {
+        try out.append_bytes(allocator, "<path d='M 36 48 Q 76 118 108 134 T 260 154 L 448 164' fill='none' stroke='var(--muted)' stroke-width='3'/>");
+        try svg::circle(allocator, out, 108.0, 134.0, 5.0, "var(--muted)", "", 0.0);
+        try svg::badge(allocator, out, 316.0, 54.0, 130.0, 24.0, "var(--grid)", "var(--ink)", "3秒残存 38%");
+        // Blocks
+        try svg::rect(allocator, out, 36.0, 196.0, 104.0, 40.0, 5.0, "var(--grid)", "var(--rule)", 1.0);
+        try svg::text(allocator, out, 88.0, 220.0, 11.0, "middle", "var(--muted)", "700", false, "挨拶・自己紹介");
+        try svg::rect(allocator, out, 146.0, 196.0, 134.0, 40.0, 5.0, "var(--grid)", "var(--rule)", 1.0);
+        try svg::text(allocator, out, 213.0, 220.0, 11.0, "middle", "var(--muted)", "700", false, "背景の前置き");
+        try svg::rect(allocator, out, 286.0, 196.0, 166.0, 40.0, 5.0, "var(--ink)", "", 0.0);
+        try svg::text(allocator, out, 369.0, 220.0, 11.0, "middle", "var(--paper)", "700", false, "ようやく結論");
+    } else {
+        try out.append_bytes(allocator, "<path d='M 36 48 Q 76 62 108 72 T 260 88 L 448 104' fill='none' stroke='var(--accent)' stroke-width='3.2'/>");
+        try svg::circle(allocator, out, 108.0, 72.0, 5.5, "var(--accent)", "", 0.0);
+        try svg::badge(allocator, out, 316.0, 54.0, 130.0, 24.0, "var(--accent)", "#ffffff", "3秒残存 82%");
+        // Blocks
+        try svg::rect(allocator, out, 36.0, 196.0, 96.0, 40.0, 5.0, "var(--accent)", "", 0.0);
+        try svg::text(allocator, out, 84.0, 220.0, 11.0, "middle", "#ffffff", "800", false, "結論フック");
+        try svg::rect(allocator, out, 138.0, 196.0, 180.0, 40.0, 5.0, "var(--ink)", "", 0.0);
+        try svg::text(allocator, out, 228.0, 220.0, 11.0, "middle", "var(--paper)", "700", false, "本編・手順");
+        try svg::rect(allocator, out, 324.0, 196.0, 128.0, 40.0, 5.0, "var(--paper)", "var(--rule)", 1.0);
+        try svg::text(allocator, out, 388.0, 220.0, 11.0, "middle", "var(--ink)", "600", false, "補足・まとめ");
+    }
+    try svg::end(allocator, out);
+
+    try readout.append_bytes(allocator, if hooked { "フック先行 / 冒頭3秒で完成品や結論を提示" } else { "前置き先行 / 結論に着く前に離脱されやすい" });
+    try hint.append_bytes(allocator, "冒頭3秒に完成結果や一番面白い瞬間を見せるフックを置く");
+    return;
+}
+
+// 16: Safe area & subtitle backdrop (p0=sub_y 10..95, p1=zabuton 0/1, p2=show_ui 0/1)
+fn demo_safe_area(
+    allocator: Allocator,
+    p: params::Params,
+    out: &var string::String,
+    readout: &var string::String,
+    hint: &var string::String,
+) -> mem::Error!void {
+    let sub_pct = svg::clamp_i32(p.p0, 10, 95);
+    let zabuton = p.p1 != 0;
+    let show_ui = p.p2 != 0;
+
+    // 9:16 phone frame centered at x=166..314 (w=148, h=246)
+    let fx = 166.0;
+    let fy = 12.0;
+    let fw = 148.0;
+    let fh = 246.0;
+    let sub_y = fy + fh * (cast<f64>(sub_pct) / 100.0);
+    let collision = sub_pct > 72 or sub_pct < 16;
+
+    try svg::begin(allocator, out, 480, 270);
+    try svg::rect(allocator, out, 0.0, 0.0, 480.0, 270.0, 8.0, "var(--sheet)", "var(--rule)", 1.0);
+    // Phone canvas with bright/busy video background
+    try svg::rect(allocator, out, fx, fy, fw, fh, 14.0, "#8fa8bc", "var(--ink)", 2.0);
+    try svg::circle(allocator, out, fx + 52.0, fy + 102.0, 44.0, "#eef2f5", "", 0.0);
+    try svg::rect(allocator, out, fx + 74.0, fy + 132.0, 62.0, 88.0, 6.0, "#e5d5b7", "", 0.0);
+
+    // Safe area box
+    try svg::rect(allocator, out, fx + 8.0, fy + 36.0, fw - 38.0, fh - 102.0, 4.0, "none", "#1d7a46", 1.5);
+
+    // Subtitle
+    if zabuton {
+        try svg::rect(allocator, out, fx + 12.0, sub_y - 14.0, fw - 24.0, 24.0, 4.0, "#141412cc", "", 0.0);
+    }
+    try svg::text(allocator, out, fx + fw * 0.5, sub_y + 3.0, 12.0, "middle", "#ffffff", "800", false, "ここに字幕が入る");
+
+    // SNS UI interference overlays (right icons + bottom caption)
+    if show_ui {
+        try svg::rect(allocator, out, fx + fw - 30.0, fy + 92.0, 26.0, 110.0, 4.0, "#ff4d0055", "#ff4d00", 1.0);
+        try svg::circle(allocator, out, fx + fw - 17.0, fy + 114.0, 7.0, "#ffffffcc", "", 0.0);
+        try svg::circle(allocator, out, fx + fw - 17.0, fy + 142.0, 7.0, "#ffffffcc", "", 0.0);
+        try svg::circle(allocator, out, fx + fw - 17.0, fy + 170.0, 7.0, "#ffffffcc", "", 0.0);
+        try svg::rect(allocator, out, fx + 4.0, fy + fh - 64.0, fw - 8.0, 60.0, 6.0, "#ff4d0055", "#ff4d00", 1.0);
+        try svg::text(allocator, out, fx + 12.0, fy + fh - 38.0, 9.0, "start", "#ffffff", "700", false, "@user キャプション");
+        try svg::rect(allocator, out, fx + 4.0, fy + 4.0, fw - 8.0, 28.0, 6.0, "#ff4d0044", "", 0.0);
+    }
+
+    // Status callout on right
+    if collision {
+        try svg::badge(allocator, out, 334.0, 96.0, 130.0, 26.0, "#c93424", "#ffffff", "UIに被って危険");
+    } else {
+        try svg::badge(allocator, out, 334.0, 96.0, 130.0, 26.0, "#1d7a46", "#ffffff", "セーフエリア内");
+    }
+    try svg::text(allocator, out, 336.0, 146.0, 11.0, "start", "var(--muted)", "600", false, if zabuton { "座布団: ON" } else { "座布団: OFF (白背景で潰れ)" });
+    try svg::end(allocator, out);
+
+    try readout.append_bytes(allocator, if collision { "UI干渉域に接触" } else { "セーフエリア内" });
+    try readout.append_bytes(allocator, if zabuton { " / 座布団 ON" } else { " / 座布団 OFF" });
+
+    try hint.append_bytes(allocator, "縦動画の下部25%と右端を避けたセーフエリア内に字幕を置き");
+    if zabuton { try hint.append_bytes(allocator, "、半透明の座布団を敷く"); } else { try hint.append_bytes(allocator, "、可読性を確保する"); }
+    return;
+}
+
+// 17: Pacing & beat (p0=use_pause 0/1, tick=0..1000)
+fn demo_pacing_beat(
+    allocator: Allocator,
+    p: params::Params,
+    out: &var string::String,
+    readout: &var string::String,
+    hint: &var string::String,
+) -> mem::Error!void {
+    let has_beat = p.p0 != 0;
+    let t = cast<f64>(svg::clamp_i32(p.tick % 1000, 0, 999)) / 1000.0;
+
+    try svg::begin(allocator, out, 480, 270);
+    try svg::rect(allocator, out, 0.0, 0.0, 480.0, 270.0, 8.0, "var(--sheet)", "var(--rule)", 1.0);
+
+    var stage_label = "カット 1";
+    var emphasis = false;
+    var silent = false;
+    if !has_beat {
+        if t < 0.25 { stage_label = "カット 1"; }
+        else if t < 0.50 { stage_label = "カット 2"; }
+        else if t < 0.75 { stage_label = "カット 3"; }
+        else { stage_label = "オチ・要点"; }
+    } else {
+        if t < 0.20 { stage_label = "カット 1"; }
+        else if t < 0.40 { stage_label = "カット 2"; }
+        else if t < 0.62 { stage_label = "… (無音の間)"; silent = true; }
+        else { stage_label = "ドカン！要点"; emphasis = true; }
+    }
+
+    let box_scale = if emphasis { 1.12 } else if silent { 0.90 } else { 1.0 };
+    let bw = 220.0 * box_scale;
+    let bh = 96.0 * box_scale;
+    try svg::rect(allocator, out, 240.0 - bw * 0.5, 74.0 - bh * 0.5, bw, bh, 8.0,
+        if emphasis { "var(--accent)" } else if silent { "var(--paper)" } else { "var(--ink)" },
+        if silent { "var(--accent)" } else { "" }, 1.5);
+    try svg::text(allocator, out, 240.0, 80.0, if emphasis { 22.0 } else { 16.0 }, "middle",
+        if emphasis { "#ffffff" } else if silent { "var(--muted)" } else { "var(--paper)" }, "800", false, stage_label);
+
+    // Beat blocks
+    let x0 = 36.0;
+    let w = 408.0;
+    if !has_beat {
+        for 0..4 |i| {
+            try svg::rect(allocator, out, x0 + cast<f64>(i) * 104.0, 168.0, 96.0, 36.0, 4.0, "var(--ink)", "", 0.0);
+        }
+    } else {
+        try svg::rect(allocator, out, x0, 168.0, 78.0, 36.0, 4.0, "var(--ink)", "", 0.0);
+        try svg::rect(allocator, out, x0 + 82.0, 168.0, 78.0, 36.0, 4.0, "var(--ink)", "", 0.0);
+        try svg::rect(allocator, out, x0 + 164.0, 168.0, 88.0, 36.0, 4.0, "var(--paper)", "var(--accent)", 1.5);
+        try svg::text(allocator, out, x0 + 208.0, 190.0, 10.0, "middle", "var(--accent)", "700", false, "タメ 0.4s");
+        try svg::rect(allocator, out, x0 + 256.0, 160.0, 152.0, 44.0, 4.0, "var(--accent)", "", 0.0);
+        try svg::text(allocator, out, x0 + 332.0, 187.0, 12.0, "middle", "#ffffff", "800", false, "強調・オチ");
+    }
+
+    let px = x0 + t * w;
+    try svg::line(allocator, out, px, 152.0, px, 218.0, "var(--accent)", 2.0, "");
+    try svg::end(allocator, out);
+
+    try readout.append_bytes(allocator, if has_beat { "緩急あり / 無音のタメで直後のカットが際立つ" } else { "均一テンポ / 全部同じ間隔で要点が流れやすい" });
+    try hint.append_bytes(allocator, "見せ場の直前に0.4秒の無音の間(タメ)を入れて緩急を作る");
+    return;
+}

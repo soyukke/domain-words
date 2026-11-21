@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="color-scheme" content="light dark">
+  <title>専門ワード体感図鑑 | domain-words</title>
+  <meta name="description" content="AIへ的確に指示するための9分野54ワードを、触って聴いて体感できるインタラクティブ図鑑。イラスト・デザイン・動画・音楽・SE・開発・テスト・ゲーム・UI/UXを収録。">
+  <meta property="og:title" content="専門ワード体感図鑑 | domain-words">
+  <meta property="og:description" content="9分野54ワードを触って聴いて覚える、AIディレクションのための体感図鑑">
+  <meta property="og:type" content="website">
+  <link rel="icon" href="./favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./style.css">
+  <script type="module" src="./app.js"></script>
+</head>
+<body>
+  <main class="app">
+    <header class="topbar">
+      <div class="identity">
+        <a href="#rim-light" class="mark" id="brand-mark" aria-label="先頭のワードへ">words<span>/</span></a>
+        <h1 class="site-title">専門ワード体感図鑑</h1>
+      </div>
+      <div class="top-actions">
+        <button type="button" id="open-drawer" class="btn btn-primary" aria-haspopup="dialog" aria-controls="search-backdrop">
+          <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="9" cy="9" r="5.5"/><path d="m13.5 13.5 4 4"/></svg>
+          <span>探す</span>
+        </button>
+        <button type="button" id="random-btn" class="btn" title="ランダムに1語選ぶ">
+          <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="3" y="3" width="14" height="14" rx="3"/><circle cx="7" cy="7" r="1"/><circle cx="13" cy="13" r="1"/><circle cx="10" cy="10" r="1"/></svg>
+          <span class="hide-xs">ランダム</span>
+        </button>
+        <button type="button" id="share-btn" class="btn" title="このワードのURLをコピー">
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M8 12l4-4M6.5 9.5 5 11a3 3 0 0 0 4.2 4.2l1.5-1.5M13.5 10.5 15 9a3 3 0 0 0-4.2-4.2L9.3 6.2"/></svg>
+          <span class="hide-xs">共有</span>
+        </button>
+      </div>
+    </header>
+
+    <nav class="nav-band" aria-label="分野とワード">
+      <div id="cat-strip" class="strip cat-strip" role="tablist" aria-label="分野"></div>
+      <div class="word-row">
+        <button type="button" id="prev-word" class="icon-btn" aria-label="前のワード">‹</button>
+        <div id="word-strip" class="strip word-strip" role="tablist" aria-label="ワード"></div>
+        <button type="button" id="next-word" class="icon-btn" aria-label="次のワード">›</button>
+      </div>
+    </nav>
+
+    <div class="desk">
+      <section class="stage-card" aria-label="ライブデモ">
+        <div class="stage-head">
+          <div class="word-heading">
+            <h2 id="word-title">読み込み中</h2>
+            <span id="word-en" class="word-en"></span>
+          </div>
+          <div class="stage-cta">
+            <button type="button" id="play-btn" class="btn btn-accent" hidden>
+              <svg viewBox="0 0 20 20" aria-hidden="true"><polygon points="6,4 16,10 6,16"/></svg>
+              <span id="play-label">再生</span>
+            </button>
+          </div>
+        </div>
+        <div id="demo-canvas" class="demo-canvas" role="img" aria-label="インタラクティブデモ"></div>
+        <div class="stage-foot">
+          <span id="demo-readout" class="readout" aria-live="polite"></span>
+          <span id="word-pos" class="word-pos"></span>
+        </div>
+      </section>
+
+      <section class="panel-card" aria-label="操作と解説">
+        <div class="panel-head">
+          <div class="tab-group" role="tablist" aria-label="表示切替">
+            <button type="button" id="tab-controls" class="tab-btn" role="tab" aria-selected="true">操作</button>
+            <button type="button" id="tab-prompt" class="tab-btn" role="tab" aria-selected="false">場面・指示</button>
+            <button type="button" id="tab-compare" class="tab-btn" role="tab" aria-selected="false">対比</button>
+          </div>
+          <button type="button" id="reset-btn" class="icon-btn" title="デモ設定を初期値へ戻す" aria-label="初期値へ戻す">↺</button>
+        </div>
+
+        <div class="panel-body">
+          <div id="pane-controls" class="pane">
+            <p id="word-summary" class="summary"></p>
+            <div id="controls-list" class="controls-list"></div>
+          </div>
+
+          <div id="pane-prompt" class="pane" hidden>
+            <div class="block">
+              <h3 class="block-label">こんなモヤモヤのとき</h3>
+              <div id="symptom-tags" class="chip-list"></div>
+            </div>
+            <div class="block">
+              <h3 class="block-label">AI への指示 Before / After</h3>
+              <div class="prompt-box prompt-ng">
+                <span class="tag-ng">曖昧</span>
+                <p id="prompt-before"></p>
+              </div>
+              <div class="prompt-box prompt-ok">
+                <span class="tag-ok">的確</span>
+                <p id="prompt-after"></p>
+              </div>
+              <button type="button" id="copy-prompt" class="btn btn-accent copy-btn">この指示文をコピー</button>
+            </div>
+          </div>
+
+          <div id="pane-compare" class="pane" hidden>
+            <div class="block">
+              <h3 class="block-label">近接ワードとの違い</h3>
+              <dl id="compare-list" class="compare-list"></dl>
+            </div>
+            <div class="block">
+              <h3 class="block-label">関連ワード</h3>
+              <div id="related-list" class="chip-list"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <footer class="footbar">
+      <span class="mono-note">domain-words · Kizu Wasm</span>
+      <span id="status-msg" class="status-msg" role="status" aria-live="polite"></span>
+      <span id="count-note" class="mono-note">54 words</span>
+    </footer>
+  </main>
+
+  <div id="search-backdrop" class="backdrop" hidden>
+    <div class="drawer" role="dialog" aria-modal="true" aria-labelledby="drawer-title">
+      <div class="drawer-head">
+        <h2 id="drawer-title">モヤモヤ逆引き・全ワード</h2>
+        <button type="button" id="close-drawer" class="icon-btn" aria-label="閉じる">×</button>
+      </div>
+      <div class="drawer-search">
+        <input type="search" id="search-input" placeholder="語句・英語・モヤモヤで検索 (例: のっぺり / merge / キレ)" autocomplete="off" aria-label="ワード検索">
+        <div id="drawer-symptoms" class="chip-list"></div>
+      </div>
+      <div id="drawer-results" class="drawer-results"></div>
+    </div>
+  </div>
+</body>
+</html>

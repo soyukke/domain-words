@@ -1,0 +1,555 @@
+// Categories 5 & 6: Programming/Dev (IDs 30..35) and Testing/QA (IDs 36..41).
+import domain_words::demos::params;
+import domain_words::svg;
+import std::mem;
+import std::string;
+
+pub fn render(
+    allocator: Allocator,
+    word_id: i32,
+    p: params::Params,
+    out_svg: &var string::String,
+    out_readout: &var string::String,
+    out_hint: &var string::String,
+) -> mem::Error!void {
+    if word_id == 30 { try demo_git_merge(allocator, p, out_svg, out_readout, out_hint); }
+    else if word_id == 31 { try demo_bool_types(allocator, p, out_svg, out_readout, out_hint); }
+    else if word_id == 32 { try demo_state_machine(allocator, p, out_svg, out_readout, out_hint); }
+    else if word_id == 33 { try demo_refactoring(allocator, p, out_svg, out_readout, out_hint); }
+    else if word_id == 34 { try demo_async_sync(allocator, p, out_svg, out_readout, out_hint); }
+    else if word_id == 35 { try demo_cache(allocator, p, out_svg, out_readout, out_hint); }
+    else if word_id == 36 { try demo_boundary_value(allocator, p, out_svg, out_readout, out_hint); }
+    else if word_id == 37 { try demo_regression(allocator, p, out_svg, out_readout, out_hint); }
+    else if word_id == 38 { try demo_edge_case(allocator, p, out_svg, out_readout, out_hint); }
+    else if word_id == 39 { try demo_repro_report(allocator, p, out_svg, out_readout, out_hint); }
+    else if word_id == 40 { try demo_mock_stub(allocator, p, out_svg, out_readout, out_hint); }
+    else { try demo_smoke_test(allocator, p, out_svg, out_readout, out_hint); }
+    return;
+}
+
+// 30: Git branch / merge / conflict (p0=step 0:main 1:branch 2:diverge 3:merged 4:conflict)
+fn demo_git_merge(allocator: Allocator, p: params::Params, out: &var string::String, readout: &var string::String, hint: &var string::String) -> mem::Error!void {
+    let step = svg::clamp_i32(p.p0, 0, 4);
+
+    try svg::begin(allocator, out, 480, 270);
+    try svg::rect(allocator, out, 0.0, 0.0, 480.0, 270.0, 8.0, "var(--sheet)", "var(--rule)", 1.0);
+
+    try svg::text(allocator, out, 28.0, 92.0, 11.0, "start", "var(--ink)", "700", true, "main");
+    // Base commits on main
+    try svg::line(allocator, out, 84.0, 88.0, 168.0, 88.0, "var(--ink)", 3.0, "");
+    try svg::circle(allocator, out, 84.0, 88.0, 11.0, "var(--ink)", "var(--sheet)", 2.0);
+    try svg::circle(allocator, out, 168.0, 88.0, 11.0, "var(--ink)", "var(--sheet)", 2.0);
+
+    if step >= 1 {
+        try svg::text(allocator, out, 28.0, 178.0, 11.0, "start", "var(--accent)", "700", true, "feat");
+        try out.append_bytes(allocator, "<path d='M 168 88 C 194 88 202 174 236 174 L 316 174' fill='none' stroke='var(--accent)' stroke-width='3'/>");
+        try svg::circle(allocator, out, 236.0, 174.0, 11.0, "var(--accent)", "var(--sheet)", 2.0);
+        try svg::circle(allocator, out, 316.0, 174.0, 11.0, "var(--accent)", "var(--sheet)", 2.0);
+    }
+    if step >= 2 {
+        // main also advances
+        try svg::line(allocator, out, 168.0, 88.0, 276.0, 88.0, "var(--ink)", 3.0, "");
+        try svg::circle(allocator, out, 276.0, 88.0, 11.0, "var(--ink)", "var(--sheet)", 2.0);
+    }
+    if step == 3 {
+        // Clean merge commit
+        try svg::line(allocator, out, 276.0, 88.0, 396.0, 88.0, "var(--ink)", 3.0, "");
+        try out.append_bytes(allocator, "<path d='M 316 174 C 354 174 364 88 396 88' fill='none' stroke='var(--accent)' stroke-width='3'/>");
+        try svg::circle(allocator, out, 396.0, 88.0, 14.0, "#1d7a46", "var(--sheet)", 2.5);
+        try svg::badge(allocator, out, 338.0, 34.0, 116.0, 24.0, "#1d7a46", "#ffffff", "MERGE 完了");
+    } else if step == 4 {
+        // Conflict!
+        try svg::line(allocator, out, 276.0, 88.0, 396.0, 88.0, "#c93424", 3.0, "5 4");
+        try out.append_bytes(allocator, "<path d='M 316 174 C 354 174 364 88 396 88' fill='none' stroke='#c93424' stroke-width='3' stroke-dasharray='5 4'/>");
+        try svg::circle(allocator, out, 396.0, 88.0, 15.0, "#c93424", "var(--sheet)", 2.5);
+        try svg::text(allocator, out, 396.0, 93.0, 15.0, "middle", "#ffffff", "900", true, "!");
+        try svg::rect(allocator, out, 84.0, 206.0, 366.0, 48.0, 6.0, "#241715", "#c93424", 1.2);
+        try svg::text(allocator, out, 98.0, 224.0, 10.0, "start", "#ff8b7b", "700", true, "&lt;&lt;&lt; main: title = A  ===  feat: title = B &gt;&gt;&gt;");
+        try svg::text(allocator, out, 98.0, 243.0, 11.0, "start", "#f2f0e9", "600", false, "同じ行を両方で変更 → どちらを残すか判断が必要");
+    } else {
+        try svg::text(allocator, out, 240.0, 236.0, 12.0, "middle", "var(--muted)", "600", false,
+            if step == 0 { "本番の線 (main) 1本だけの状態" } else if step == 1 { "本番を壊さずに作業用の枝 (ブランチ) を切った状態" } else { "本番と作業枝の両方で変更が進んだ状態" });
+    }
+    try svg::end(allocator, out);
+
+    if step == 0 { try readout.append_bytes(allocator, "1. main のみ"); }
+    else if step == 1 { try readout.append_bytes(allocator, "2. ブランチ作成 (安全な作業場)"); }
+    else if step == 2 { try readout.append_bytes(allocator, "3. 両方で変更が進行"); }
+    else if step == 3 { try readout.append_bytes(allocator, "4. マージ完了 (2つの変更を合流)"); }
+    else { try readout.append_bytes(allocator, "5. コンフリクト発生 (同じ箇所が衝突)"); }
+
+    try hint.append_bytes(allocator, "作業ブランチの変更をmainへマージし、コンフリクトが出たら差分を見せて");
+    return;
+}
+
+// 31: bool & types (p0=type 0:string 1:bool 2:enum)
+fn demo_bool_types(allocator: Allocator, p: params::Params, out: &var string::String, readout: &var string::String, hint: &var string::String) -> mem::Error!void {
+    let kind = svg::clamp_i32(p.p0, 0, 2);
+
+    try svg::begin(allocator, out, 480, 270);
+    try svg::rect(allocator, out, 0.0, 0.0, 480.0, 270.0, 8.0, "var(--sheet)", "var(--rule)", 1.0);
+
+    try svg::text(allocator, out, 28.0, 38.0, 12.0, "start", "var(--muted)", "700", false, "質問: 「本番へ公開済み？」");
+
+    if kind == 0 {
+        try svg::badge(allocator, out, 28.0, 54.0, 118.0, 24.0, "#c93424", "#ffffff", "string (自由文)");
+        try svg::rect(allocator, out, 28.0, 90.0, 424.0, 40.0, 6.0, "var(--paper)", "var(--rule)", 1.0);
+        try svg::text(allocator, out, 42.0, 115.0, 12.0, "start", "var(--ink)", "600", false, "「たぶん出した気がしますが確認中です…」");
+        try svg::rect(allocator, out, 28.0, 140.0, 424.0, 40.0, 6.0, "var(--paper)", "var(--rule)", 1.0);
+        try svg::text(allocator, out, 42.0, 165.0, 12.0, "start", "var(--ink)", "600", false, "「はい」 / 「YES」 / 「済」 / 「公開」 (表記ゆれ)");
+        try svg::text(allocator, out, 28.0, 218.0, 12.0, "start", "#c93424", "700", false, "分岐処理が壊れやすく、読み手も結論に迷う");
+    } else if kind == 1 {
+        try svg::badge(allocator, out, 28.0, 54.0, 134.0, 24.0, "var(--accent)", "#ffffff", "bool (2択だけ)");
+        try svg::rect(allocator, out, 28.0, 96.0, 198.0, 74.0, 8.0, "var(--ink)", "", 0.0);
+        try svg::text(allocator, out, 127.0, 132.0, 22.0, "middle", "var(--paper)", "800", true, "true");
+        try svg::text(allocator, out, 127.0, 154.0, 11.0, "middle", "var(--muted)", "600", false, "公開済み");
+        try svg::rect(allocator, out, 254.0, 96.0, 198.0, 74.0, 8.0, "var(--paper)", "var(--ink)", 1.5);
+        try svg::text(allocator, out, 353.0, 132.0, 22.0, "middle", "var(--ink)", "800", true, "false");
+        try svg::text(allocator, out, 353.0, 154.0, 11.0, "middle", "var(--muted)", "600", false, "未公開");
+        try svg::text(allocator, out, 28.0, 218.0, 12.0, "start", "#1d7a46", "700", false, "Yes/Noの2択に絞るため曖昧さゼロ");
+    } else {
+        try svg::badge(allocator, out, 28.0, 54.0, 152.0, 24.0, "#1d7a46", "#ffffff", "enum (限定選択肢)");
+        try svg::rect(allocator, out, 28.0, 102.0, 128.0, 62.0, 6.0, "var(--paper)", "var(--rule)", 1.5);
+        try svg::text(allocator, out, 92.0, 138.0, 14.0, "middle", "var(--ink)", "800", true, "Draft");
+        try svg::rect(allocator, out, 176.0, 102.0, 128.0, 62.0, 6.0, "var(--accent)", "", 0.0);
+        try svg::text(allocator, out, 240.0, 138.0, 14.0, "middle", "#ffffff", "800", true, "Preview");
+        try svg::rect(allocator, out, 324.0, 102.0, 128.0, 62.0, 6.0, "var(--ink)", "", 0.0);
+        try svg::text(allocator, out, 388.0, 138.0, 14.0, "middle", "var(--paper)", "800", true, "Live");
+        try svg::text(allocator, out, 28.0, 218.0, 12.0, "start", "#1d7a46", "700", false, "3択以上なら決められた名前だけに限定する");
+    }
+    try svg::end(allocator, out);
+
+    if kind == 0 { try readout.append_bytes(allocator, "string (自由文) / 表記ゆれ・長文化"); }
+    else if kind == 1 { try readout.append_bytes(allocator, "bool (true/false) / 2択で確定"); }
+    else { try readout.append_bytes(allocator, "enum / 3つ以上の状態を型で固定"); }
+    try hint.append_bytes(allocator, "2択は文字列ではなくboolで、3状態以上はenum型で定義する");
+    return;
+}
+
+// 32: State machine vs boolean flags (p0=mode 0:flags 1:machine, p1=flagA/state, p2=flagB)
+fn demo_state_machine(allocator: Allocator, p: params::Params, out: &var string::String, readout: &var string::String, hint: &var string::String) -> mem::Error!void {
+    let fsm = p.p0 != 0;
+
+    try svg::begin(allocator, out, 480, 270);
+    try svg::rect(allocator, out, 0.0, 0.0, 480.0, 270.0, 8.0, "var(--sheet)", "var(--rule)", 1.0);
+
+    if !fsm {
+        let is_load = p.p1 != 0;
+        let is_err = p.p2 != 0;
+        let invalid = is_load and is_err;
+        try svg::badge(allocator, out, 24.0, 18.0, 148.0, 22.0, "#c93424", "#ffffff", "個別 bool フラグ管理");
+        try svg::rect(allocator, out, 36.0, 66.0, 186.0, 64.0, 6.0, if is_load { "var(--accent)" } else { "var(--paper)" }, "var(--rule)", 1.5);
+        try svg::text(allocator, out, 129.0, 104.0, 14.0, "middle", if is_load { "#ffffff" } else { "var(--ink)" }, "800", true,
+            if is_load { "isLoading = true" } else { "isLoading = false" });
+        try svg::rect(allocator, out, 258.0, 66.0, 186.0, 64.0, 6.0, if is_err { "#c93424" } else { "var(--paper)" }, "var(--rule)", 1.5);
+        try svg::text(allocator, out, 351.0, 104.0, 14.0, "middle", if is_err { "#ffffff" } else { "var(--ink)" }, "800", true,
+            if is_err { "isError = true" } else { "isError = false" });
+
+        try svg::rect(allocator, out, 36.0, 156.0, 408.0, 84.0, 6.0, if invalid { "#2a1412" } else { "var(--paper)" }, if invalid { "#c93424" } else { "var(--rule)" }, 1.5);
+        try svg::text(allocator, out, 240.0, 194.0, 14.0, "middle", if invalid { "#ff8b7b" } else { "var(--ink)" }, "800", false,
+            if invalid { "矛盾発生: 読込中かつエラー表示が同時点灯" } else { "両方をONにするとありえない組み合わせが生まれる" });
+        try svg::text(allocator, out, 240.0, 220.0, 11.0, "middle", "var(--muted)", "600", true, "2 flags = 4 states (incl. impossible)");
+    } else {
+        let st = svg::clamp_i32(p.p1, 0, 3); // 0:Idle 1:Loading 2:Ready 3:Error
+        try svg::badge(allocator, out, 24.0, 18.0, 174.0, 22.0, "#1d7a46", "#ffffff", "ステートマシン (1状態のみ)");
+        try svg::line(allocator, out, 114.0, 134.0, 194.0, 134.0, "var(--ink)", 2.0, "");
+        try svg::line(allocator, out, 286.0, 124.0, 352.0, 86.0, "var(--ink)", 2.0, "");
+        try svg::line(allocator, out, 286.0, 144.0, 352.0, 184.0, "var(--ink)", 2.0, "");
+
+        try svg::rect(allocator, out, 28.0, 112.0, 86.0, 44.0, 22.0, if st == 0 { "var(--accent)" } else { "var(--paper)" }, "var(--ink)", 1.5);
+        try svg::text(allocator, out, 71.0, 139.0, 12.0, "middle", if st == 0 { "#ffffff" } else { "var(--ink)" }, "800", true, "Idle");
+
+        try svg::rect(allocator, out, 194.0, 112.0, 92.0, 44.0, 22.0, if st == 1 { "var(--accent)" } else { "var(--paper)" }, "var(--ink)", 1.5);
+        try svg::text(allocator, out, 240.0, 139.0, 12.0, "middle", if st == 1 { "#ffffff" } else { "var(--ink)" }, "800", true, "Loading");
+
+        try svg::rect(allocator, out, 352.0, 64.0, 96.0, 44.0, 22.0, if st == 2 { "#1d7a46" } else { "var(--paper)" }, "var(--ink)", 1.5);
+        try svg::text(allocator, out, 400.0, 91.0, 12.0, "middle", if st == 2 { "#ffffff" } else { "var(--ink)" }, "800", true, "Ready");
+
+        try svg::rect(allocator, out, 352.0, 162.0, 96.0, 44.0, 22.0, if st == 3 { "#c93424" } else { "var(--paper)" }, "var(--ink)", 1.5);
+        try svg::text(allocator, out, 400.0, 189.0, 12.0, "middle", if st == 3 { "#ffffff" } else { "var(--ink)" }, "800", true, "Error");
+
+        try svg::text(allocator, out, 240.0, 242.0, 11.0, "middle", "#1d7a46", "700", false, "同時に取れる状態は常に1つだけ → 矛盾が起きない");
+    }
+    try svg::end(allocator, out);
+
+    try readout.append_bytes(allocator, if fsm { "ステートマシン / 矛盾状態が構造的に発生しない" } else { "フラグ管理 / 組み合わせ爆発と矛盾バグ" });
+    try hint.append_bytes(allocator, "個別boolフラグをやめ、Idle/Loading/Ready/Errorの状態遷移(ステートマシン)にする");
+    return;
+}
+
+// 33: Refactoring (p0=after 0/1)
+fn demo_refactoring(allocator: Allocator, p: params::Params, out: &var string::String, readout: &var string::String, hint: &var string::String) -> mem::Error!void {
+    let clean = p.p0 != 0;
+
+    try svg::begin(allocator, out, 480, 270);
+    try svg::rect(allocator, out, 0.0, 0.0, 480.0, 270.0, 8.0, "var(--sheet)", "var(--rule)", 1.0);
+
+    // Input & Output invariants (unchanged!)
+    try svg::badge(allocator, out, 18.0, 102.0, 62.0, 32.0, "var(--ink)", "var(--paper)", "INPUT");
+    try svg::badge(allocator, out, 400.0, 102.0, 62.0, 32.0, "#1d7a46", "#ffffff", "OUTPUT");
+
+    if !clean {
+        try svg::rect(allocator, out, 102.0, 34.0, 276.0, 164.0, 8.0, "var(--paper)", "var(--muted)", 1.5);
+        try out.append_bytes(allocator, "<path d='M 122 68 C 210 156 260 44 356 140 M 126 154 C 190 54 290 176 352 72 M 136 108 Q 240 184 344 106' fill='none' stroke='var(--muted)' stroke-width='2.5'/>");
+        try svg::text(allocator, out, 240.0, 122.0, 13.0, "middle", "var(--ink)", "800", false, "巨大関数 400行 (全部入り)");
+    } else {
+        try svg::line(allocator, out, 80.0, 118.0, 116.0, 118.0, "var(--accent)", 2.0, "");
+        try svg::rect(allocator, out, 116.0, 86.0, 72.0, 64.0, 6.0, "var(--paper)", "var(--accent)", 1.5);
+        try svg::text(allocator, out, 152.0, 122.0, 12.0, "middle", "var(--ink)", "700", false, "検証");
+        try svg::line(allocator, out, 188.0, 118.0, 204.0, 118.0, "var(--accent)", 2.0, "");
+        try svg::rect(allocator, out, 204.0, 86.0, 72.0, 64.0, 6.0, "var(--paper)", "var(--accent)", 1.5);
+        try svg::text(allocator, out, 240.0, 122.0, 12.0, "middle", "var(--ink)", "700", false, "計算");
+        try svg::line(allocator, out, 276.0, 118.0, 292.0, 118.0, "var(--accent)", 2.0, "");
+        try svg::rect(allocator, out, 292.0, 86.0, 72.0, 64.0, 6.0, "var(--paper)", "var(--accent)", 1.5);
+        try svg::text(allocator, out, 328.0, 122.0, 12.0, "middle", "var(--ink)", "700", false, "整形");
+        try svg::line(allocator, out, 364.0, 118.0, 400.0, 118.0, "var(--accent)", 2.0, "");
+    }
+
+    // Green test bar proving behavior did not change
+    try svg::rect(allocator, out, 18.0, 214.0, 444.0, 38.0, 6.0, "#1d7a46", "", 0.0);
+    try svg::text(allocator, out, 240.0, 238.0, 12.0, "middle", "#ffffff", "800", true, "TESTS: 3/3 PASS (外の挙動は一切変えていない)");
+    try svg::end(allocator, out);
+
+    try readout.append_bytes(allocator, if clean { "リファクタ後 / 挙動そのまま、責務ごとに分離" } else { "整理前 / 動くが変更しづらい巨大関数" });
+    try hint.append_bytes(allocator, "外の挙動とテスト結果は変えず、関数分割と命名整理だけのリファクタリングを行う");
+    return;
+}
+
+// 34: Async vs Sync (p0=async_on 0/1, tick=0..1000)
+fn demo_async_sync(allocator: Allocator, p: params::Params, out: &var string::String, readout: &var string::String, hint: &var string::String) -> mem::Error!void {
+    let is_async = p.p0 != 0;
+    let prog = svg::clamp_i32(p.tick % 1000, 0, 999);
+    let busy = prog > 40 and prog < 780;
+    let done = prog >= 780;
+
+    try svg::begin(allocator, out, 480, 270);
+    try svg::rect(allocator, out, 0.0, 0.0, 480.0, 270.0, 8.0, "var(--sheet)", "var(--rule)", 1.0);
+
+    // UI thread lane
+    try svg::text(allocator, out, 28.0, 46.0, 11.0, "start", "var(--ink)", "700", true, "UI (画面操作)");
+    if !is_async and busy {
+        try svg::rect(allocator, out, 28.0, 58.0, 424.0, 64.0, 6.0, "#2a1412", "#c93424", 1.5);
+        try svg::text(allocator, out, 240.0, 95.0, 14.0, "middle", "#ff8b7b", "800", false, "フリーズ中 (ボタンもスクロールも無反応)");
+    } else {
+        try svg::rect(allocator, out, 28.0, 58.0, 424.0, 64.0, 6.0, "var(--paper)", "#1d7a46", 1.5);
+        let cx = 66.0 + (cast<f64>(prog % 360) / 360.0) * 348.0;
+        try svg::circle(allocator, out, cx, 90.0, 12.0, "var(--accent)", "", 0.0);
+        try svg::text(allocator, out, 240.0, 95.0, 12.0, "middle", "var(--ink)", "700", false,
+            if done { "結果を表示 (操作ずっと滑らか)" } else if busy { "待機中も画面操作できる" } else { "再生ボタンで重い通信を実行" });
+    }
+
+    // Background / Network lane
+    try svg::text(allocator, out, 28.0, 156.0, 11.0, "start", "var(--muted)", "700", true, "NETWORK / WORKER");
+    try svg::rect(allocator, out, 28.0, 168.0, 424.0, 44.0, 6.0, "var(--grid)", "var(--rule)", 1.0);
+    let bar_w = if done { 424.0 } else if busy { (cast<f64>(prog - 40) / 740.0) * 424.0 } else { 0.0 };
+    if bar_w > 1.0 {
+        try svg::rect(allocator, out, 28.0, 168.0, bar_w, 44.0, 6.0, if done { "#1d7a46" } else { "var(--accent)" }, "", 0.0);
+    }
+    try svg::text(allocator, out, 240.0, 244.0, 12.0, "middle", "var(--muted)", "600", false,
+        if is_async { "非同期: 通信を裏へ逃がし、画面の反応を止めない" } else { "同期: 処理が終わるまで画面全体が固まる" });
+    try svg::end(allocator, out);
+
+    try readout.append_bytes(allocator, if is_async { "非同期処理 / UIを止めずに完了待ち" } else { "同期処理 / 完了まで画面がフリーズ" });
+    try hint.append_bytes(allocator, "重い取得を非同期処理にし、待機中は操作を止めずローディング表示にする");
+    return;
+}
+
+// 35: Cache (p0=cache_on 0/1, p1=server_ver 1..2, p2=cache_ver 1..2)
+fn demo_cache(allocator: Allocator, p: params::Params, out: &var string::String, readout: &var string::String, hint: &var string::String) -> mem::Error!void {
+    let use_cache = p.p0 != 0;
+    let s_ver = if p.p1 != 0 { 2 } else { 1 };
+    let c_ver = if p.p2 != 0 { 2 } else { 1 };
+    let stale = use_cache and c_ver != s_ver;
+
+    try svg::begin(allocator, out, 480, 270);
+    try svg::rect(allocator, out, 0.0, 0.0, 480.0, 270.0, 8.0, "var(--sheet)", "var(--rule)", 1.0);
+
+    // Client -> Cache -> Server
+    try svg::rect(allocator, out, 22.0, 74.0, 114.0, 86.0, 8.0, "var(--paper)", "var(--ink)", 1.5);
+    try svg::text(allocator, out, 79.0, 106.0, 12.0, "middle", "var(--ink)", "800", false, "ブラウザ");
+    try svg::badge(allocator, out, 46.0, 122.0, 66.0, 24.0, if stale { "#c93424" } else { "#1d7a46" }, "#ffffff",
+        if (if use_cache { c_ver } else { s_ver }) == 2 { "表示 v2" } else { "表示 v1" });
+
+    try svg::rect(allocator, out, 182.0, 74.0, 116.0, 86.0, 8.0, if use_cache { "var(--paper)" } else { "var(--grid)" }, if stale { "#c93424" } else { "var(--accent)" }, 1.5);
+    try svg::text(allocator, out, 240.0, 106.0, 12.0, "middle", "var(--ink)", "800", false, "キャッシュ");
+    try svg::text(allocator, out, 240.0, 134.0, 13.0, "middle", if stale { "#c93424" } else { "var(--accent)" }, "800", true,
+        if !use_cache { "OFF" } else if c_ver == 2 { "HIT v2" } else { "HIT v1" });
+
+    try svg::rect(allocator, out, 344.0, 74.0, 114.0, 86.0, 8.0, "var(--ink)", "", 0.0);
+    try svg::text(allocator, out, 401.0, 106.0, 12.0, "middle", "var(--paper)", "800", false, "サーバー");
+    try svg::text(allocator, out, 401.0, 134.0, 13.0, "middle", "#ff8a50", "800", true, if s_ver == 2 { "最新 v2" } else { "原本 v1" });
+
+    try svg::line(allocator, out, 136.0, 117.0, 182.0, 117.0, "var(--accent)", 2.5, "");
+    if !use_cache {
+        try svg::line(allocator, out, 298.0, 117.0, 344.0, 117.0, "var(--ink)", 2.5, "");
+    } else {
+        try svg::line(allocator, out, 298.0, 117.0, 344.0, 117.0, "var(--rule)", 1.5, "4 4");
+    }
+
+    try svg::text(allocator, out, 240.0, 206.0, 13.0, "middle", if stale { "#c93424" } else { "var(--ink)" }, "800", false,
+        if stale { "古いキャッシュ v1 が残り、更新後の v2 が出ない" } else if use_cache { "キャッシュ命中: 12ms で高速表示" } else { "毎回サーバー取得: 420ms だが常に最新" });
+    try svg::end(allocator, out);
+
+    if stale { try readout.append_bytes(allocator, "12ms / 古い版 v1 が残存 (キャッシュ無効化が必要)"); }
+    else if use_cache { try readout.append_bytes(allocator, "12ms / キャッシュヒット (最新一致)"); }
+    else { try readout.append_bytes(allocator, "420ms / キャッシュなし (常に原本取得)"); }
+    try hint.append_bytes(allocator, "古いキャッシュが残らないようファイル名ハッシュやCache-Controlで無効化する");
+    return;
+}
+
+// 36: Boundary value (p0=input -1..101, p1=buggy_lt 0:correct 1:buggy)
+fn demo_boundary_value(allocator: Allocator, p: params::Params, out: &var string::String, readout: &var string::String, hint: &var string::String) -> mem::Error!void {
+    let val = svg::clamp_i32(p.p0, -1, 101);
+    let buggy = p.p1 != 0;
+    let expected = val >= 1 and val <= 99;
+    let actual = if buggy { val > 1 and val < 99 } else { expected };
+    let mismatch = expected != actual;
+
+    try svg::begin(allocator, out, 480, 270);
+    try svg::rect(allocator, out, 0.0, 0.0, 480.0, 270.0, 8.0, "var(--sheet)", "var(--rule)", 1.0);
+    try svg::text(allocator, out, 28.0, 36.0, 12.0, "start", "var(--muted)", "700", false, "仕様: 購入数量は 1 〜 99 まで許可");
+    try svg::badge(allocator, out, 304.0, 18.0, 150.0, 24.0, if buggy { "#c93424" } else { "#1d7a46" }, "#ffffff",
+        if buggy { "バグ実装 (1 &lt; x &lt; 99)" } else { "正常実装 (1 &lt;= x &lt;= 99)" });
+
+    // Number line
+    try svg::line(allocator, out, 42.0, 118.0, 438.0, 118.0, "var(--rule)", 3.0, "");
+    try svg::rect(allocator, out, 108.0, 108.0, 264.0, 20.0, 10.0, "#1d7a4633", "#1d7a46", 1.5);
+    try svg::text(allocator, out, 108.0, 96.0, 11.0, "middle", "var(--ink)", "800", true, "1");
+    try svg::text(allocator, out, 372.0, 96.0, 11.0, "middle", "var(--ink)", "800", true, "99");
+
+    let px = svg::clamp_f64(108.0 + (cast<f64>(val - 1) / 98.0) * 264.0, 44.0, 436.0);
+    try svg::circle(allocator, out, px, 118.0, 12.0, if mismatch { "#c93424" } else { "var(--accent)" }, "var(--sheet)", 2.0);
+    try out.append_bytes(allocator, "<text x='");
+    try svg::append_f1(allocator, out, px);
+    try out.append_bytes(allocator, "' y='152' font-size='14' text-anchor='middle' fill='var(--ink)' font-weight='800' font-family='var(--mono)'>x = ");
+    try svg::append_int(allocator, out, cast<i64>(val));
+    try out.append_bytes(allocator, "</text>");
+
+    // Result box
+    try svg::rect(allocator, out, 28.0, 178.0, 424.0, 68.0, 8.0, if mismatch { "#2a1412" } else { "var(--paper)" }, if mismatch { "#c93424" } else { "var(--rule)" }, 1.5);
+    try svg::text(allocator, out, 240.0, 208.0, 14.0, "middle", if mismatch { "#ff8b7b" } else { "var(--ink)" }, "800", false,
+        if mismatch { "境界バグ発見！ 1 や 99 ちょうどだけ拒否された" } else if actual { "許可 (期待どおり)" } else { "範囲外エラー (期待どおり)" });
+    try svg::text(allocator, out, 240.0, 232.0, 11.0, "middle", "var(--muted)", "600", true, "CHECK: -1, 0, 1, 99, 100");
+    try svg::end(allocator, out);
+
+    try readout.append_bytes(allocator, "入力 ");
+    try svg::append_int(allocator, readout, cast<i64>(val));
+    try readout.append_bytes(allocator, " → ");
+    try readout.append_bytes(allocator, if mismatch { "境界バグ検出！" } else if actual { "許可 (OK)" } else { "拒否 (範囲外)" });
+    try hint.append_bytes(allocator, "正常系だけでなく 0・-1・下限・上限・上限+1 の境界値テストを追加する");
+    return;
+}
+
+// 37: Regression (p0=add_feature_d 0/1, p1=run_regression 0/1)
+fn demo_regression(allocator: Allocator, p: params::Params, out: &var string::String, readout: &var string::String, hint: &var string::String) -> mem::Error!void {
+    let added = p.p0 != 0;
+    let tested = p.p1 != 0;
+    let b_broken = added;
+
+    try svg::begin(allocator, out, 480, 270);
+    try svg::rect(allocator, out, 0.0, 0.0, 480.0, 270.0, 8.0, "var(--sheet)", "var(--rule)", 1.0);
+
+    let names = [4]i32{ 0, 1, 2, 3 };
+    let _ = names;
+    try svg::rect(allocator, out, 28.0, 48.0, 96.0, 96.0, 8.0, "var(--paper)", "#1d7a46", 2.0);
+    try svg::text(allocator, out, 76.0, 92.0, 13.0, "middle", "var(--ink)", "800", false, "機能 A");
+    try svg::badge(allocator, out, 46.0, 108.0, 60.0, 22.0, "#1d7a46", "#ffffff", "OK");
+
+    try svg::rect(allocator, out, 138.0, 48.0, 96.0, 96.0, 8.0, if b_broken { "#2a1412" } else { "var(--paper)" }, if b_broken { "#c93424" } else { "#1d7a46" }, 2.0);
+    try svg::text(allocator, out, 186.0, 92.0, 13.0, "middle", if b_broken { "#ffffff" } else { "var(--ink)" }, "800", false, "機能 B");
+    try svg::badge(allocator, out, 152.0, 108.0, 68.0, 22.0, if b_broken { "#c93424" } else { "#1d7a46" }, "#ffffff",
+        if !b_broken { "OK" } else if tested { "デグレ検知" } else { "隠れ破損" });
+
+    try svg::rect(allocator, out, 248.0, 48.0, 96.0, 96.0, 8.0, "var(--paper)", "#1d7a46", 2.0);
+    try svg::text(allocator, out, 296.0, 92.0, 13.0, "middle", "var(--ink)", "800", false, "機能 C");
+    try svg::badge(allocator, out, 266.0, 108.0, 60.0, 22.0, "#1d7a46", "#ffffff", "OK");
+
+    try svg::rect(allocator, out, 358.0, 48.0, 96.0, 96.0, 8.0, if added { "var(--accent)" } else { "var(--grid)" }, "var(--rule)", 1.5);
+    try svg::text(allocator, out, 406.0, 92.0, 13.0, "middle", if added { "#ffffff" } else { "var(--muted)" }, "800", false, "新機能 D");
+    try svg::badge(allocator, out, 376.0, 108.0, 60.0, 22.0, if added { "var(--ink)" } else { "var(--rule)" }, if added { "var(--paper)" } else { "var(--muted)" },
+        if added { "NEW OK" } else { "未追加" });
+
+    try svg::rect(allocator, out, 28.0, 174.0, 424.0, 64.0, 8.0, "var(--paper)", if b_broken and !tested { "#c93424" } else { "var(--rule)" }, 1.5);
+    try svg::text(allocator, out, 240.0, 211.0, 13.0, "middle", "var(--ink)", "800", false,
+        if !added { "既存 A・B・C すべて正常稼働中" } else if tested { "回帰テストが機能Bの破損を出荷前に即時検知" } else { "新機能Dだけ確認して出荷 → 昨日動いたBが本番で壊れた" });
+    try svg::end(allocator, out);
+
+    if !added { try readout.append_bytes(allocator, "変更前 / 全機能正常"); }
+    else if tested { try readout.append_bytes(allocator, "回帰テスト実行 / デグレを出荷前にブロック"); }
+    else { try readout.append_bytes(allocator, "新機能のみ確認 / 機能Bのデグレを見逃し"); }
+    try hint.append_bytes(allocator, "既存機能が壊れていないかリグレッションテストを実行し、再発防止テストを1本足す");
+    return;
+}
+
+// 38: Edge case (p0=case 0:normal 1:empty 2:long_word 3:emoji, p1=handled 0/1)
+fn demo_edge_case(allocator: Allocator, p: params::Params, out: &var string::String, readout: &var string::String, hint: &var string::String) -> mem::Error!void {
+    let cs = svg::clamp_i32(p.p0, 0, 3);
+    let safe = p.p1 != 0;
+
+    try svg::begin(allocator, out, 480, 270);
+    try svg::rect(allocator, out, 0.0, 0.0, 480.0, 270.0, 8.0, "var(--sheet)", "var(--rule)", 1.0);
+
+    // Card frame (width 240)
+    try svg::rect(allocator, out, 120.0, 46.0, 240.0, 148.0, 10.0, "var(--paper)", if !safe and cs > 0 { "#c93424" } else { "var(--ink)" }, 1.8);
+    try svg::text(allocator, out, 138.0, 74.0, 11.0, "start", "var(--muted)", "700", true, "PROFILE CARD");
+
+    if cs == 0 {
+        try svg::text(allocator, out, 138.0, 116.0, 18.0, "start", "var(--ink)", "800", false, "山田 太郎");
+        try svg::text(allocator, out, 138.0, 146.0, 12.0, "start", "var(--muted)", "500", false, "通常入力 (ハッピーパス)");
+    } else if cs == 1 {
+        if safe {
+            try svg::text(allocator, out, 138.0, 116.0, 16.0, "start", "var(--muted)", "700", false, "(未設定のユーザー)");
+            try svg::badge(allocator, out, 138.0, 138.0, 106.0, 22.0, "#1d7a46", "#ffffff", "空文字フォールバック");
+        } else {
+            try svg::text(allocator, out, 138.0, 116.0, 16.0, "start", "#c93424", "800", true, "undefined");
+            try svg::text(allocator, out, 138.0, 146.0, 11.0, "start", "#c93424", "600", false, "空文字で画面崩れ・内部名露出");
+        }
+    } else if cs == 2 {
+        if safe {
+            try svg::text(allocator, out, 138.0, 116.0, 16.0, "start", "var(--ink)", "800", true, "superlongusername...");
+            try svg::badge(allocator, out, 138.0, 138.0, 104.0, 22.0, "#1d7a46", "#ffffff", "省略記号で収束");
+        } else {
+            try svg::text(allocator, out, 138.0, 116.0, 16.0, "start", "#c93424", "800", true, "superlongusernamewithoutspaces1234567");
+            try svg::text(allocator, out, 138.0, 146.0, 11.0, "start", "#c93424", "600", false, "枠を突き抜けて横スクロール発生");
+        }
+    } else {
+        if safe {
+            try svg::text(allocator, out, 138.0, 116.0, 18.0, "start", "var(--ink)", "800", false, "開発チーム 🚀✨");
+            try svg::badge(allocator, out, 138.0, 138.0, 116.0, 22.0, "#1d7a46", "#ffffff", "書記素単位で安全切断");
+        } else {
+            try svg::text(allocator, out, 138.0, 116.0, 18.0, "start", "#c93424", "800", false, "開発チーム ?");
+            try svg::text(allocator, out, 138.0, 146.0, 11.0, "start", "#c93424", "600", false, "文字数切断で絵文字が文字化け");
+        }
+    }
+    try svg::text(allocator, out, 240.0, 232.0, 12.0, "middle", "var(--muted)", "600", false,
+        if safe { "極端な入力でも壊れないガード済み" } else { "通常入力だけ試すと見落とすエッジケース" });
+    try svg::end(allocator, out);
+
+    try readout.append_bytes(allocator, if safe { "エッジケース対策済み" } else { "未対策 (極端な入力で崩れる)" });
+    try hint.append_bytes(allocator, "空文字・改行なし超長文・絵文字・連打といったエッジケースを洗い出して対策する");
+    return;
+}
+
+// 39: Repro / Expected / Actual (p0=has_steps, p1=has_expected, p2=has_actual, p3=has_env)
+fn demo_repro_report(allocator: Allocator, p: params::Params, out: &var string::String, readout: &var string::String, hint: &var string::String) -> mem::Error!void {
+    let s1 = p.p0 != 0;
+    let s2 = p.p1 != 0;
+    let s3 = p.p2 != 0;
+    let s4 = p.p3 != 0;
+    var count: i32 = 0;
+    if s1 { count = count + 1; }
+    if s2 { count = count + 1; }
+    if s3 { count = count + 1; }
+    if s4 { count = count + 1; }
+    let suspects = if count == 0 { 16 } else if count == 1 { 9 } else if count == 2 { 4 } else if count == 3 { 2 } else { 1 };
+
+    try svg::begin(allocator, out, 480, 270);
+    try svg::rect(allocator, out, 0.0, 0.0, 480.0, 270.0, 8.0, "var(--sheet)", "var(--rule)", 1.0);
+
+    // 4 report checklist badges
+    try svg::badge(allocator, out, 28.0, 26.0, 96.0, 28.0, if s1 { "var(--accent)" } else { "var(--grid)" }, if s1 { "#ffffff" } else { "var(--muted)" }, "再現手順");
+    try svg::badge(allocator, out, 136.0, 26.0, 96.0, 28.0, if s2 { "var(--accent)" } else { "var(--grid)" }, if s2 { "#ffffff" } else { "var(--muted)" }, "期待値");
+    try svg::badge(allocator, out, 244.0, 26.0, 96.0, 28.0, if s3 { "var(--accent)" } else { "var(--grid)" }, if s3 { "#ffffff" } else { "var(--muted)" }, "実測値");
+    try svg::badge(allocator, out, 352.0, 26.0, 100.0, 28.0, if s4 { "var(--accent)" } else { "var(--grid)" }, if s4 { "#ffffff" } else { "var(--muted)" }, "環境・画面");
+
+    // Grid of 16 possible root causes narrowing down to 1
+    try svg::text(allocator, out, 28.0, 86.0, 11.0, "start", "var(--muted)", "700", false, "AIが疑う原因候補の広がり");
+    for 0..16 |i| {
+        let col = i % 8;
+        let row = i / 8;
+        let x = 28.0 + cast<f64>(col) * 54.0;
+        let y = 100.0 + cast<f64>(row) * 48.0;
+        let active = i < suspects;
+        let exact = suspects == 1 and i == 0;
+        try svg::rect(allocator, out, x, y, 44.0, 36.0, 5.0,
+            if exact { "#1d7a46" } else if active { "var(--accent)" } else { "var(--grid)" }, "var(--rule)", 1.0);
+        if exact {
+            try svg::text(allocator, out, x + 22.0, y + 23.0, 11.0, "middle", "#ffffff", "800", true, "BUG");
+        }
+    }
+
+    try svg::text(allocator, out, 240.0, 232.0, 13.0, "middle", "var(--ink)", "800", false,
+        if suspects == 1 { "原因を1点に特定 → 一発で修正できる" } else { "情報不足だと AI が推測で別の場所を直しがち" });
+    try svg::end(allocator, out);
+
+    try readout.append_bytes(allocator, "情報 ");
+    try svg::append_int(allocator, readout, cast<i64>(count));
+    try readout.append_bytes(allocator, "/4 → 原因候補 ");
+    try svg::append_int(allocator, readout, cast<i64>(suspects));
+    try readout.append_bytes(allocator, " 個");
+    try hint.append_bytes(allocator, "再現手順・期待値・実測値・環境の4点を揃えてバグを報告する");
+    return;
+}
+
+// 40: Mock / Stub (p0=target 0:prod 1:mock_200 2:mock_500 3:mock_timeout)
+fn demo_mock_stub(allocator: Allocator, p: params::Params, out: &var string::String, readout: &var string::String, hint: &var string::String) -> mem::Error!void {
+    let mode = svg::clamp_i32(p.p0, 0, 3);
+
+    try svg::begin(allocator, out, 480, 270);
+    try svg::rect(allocator, out, 0.0, 0.0, 480.0, 270.0, 8.0, "var(--sheet)", "var(--rule)", 1.0);
+
+    try svg::rect(allocator, out, 28.0, 86.0, 130.0, 76.0, 8.0, "var(--paper)", "var(--ink)", 1.5);
+    try svg::text(allocator, out, 93.0, 128.0, 13.0, "middle", "var(--ink)", "800", false, "テスト対象UI");
+
+    try svg::line(allocator, out, 158.0, 124.0, 256.0, 124.0, if mode == 0 { "#c93424" } else { "var(--accent)" }, 2.5, if mode == 0 { "5 4" } else { "" });
+
+    try svg::rect(allocator, out, 256.0, 62.0, 196.0, 124.0, 8.0,
+        if mode == 0 { "#2a1412" } else { "var(--ink)" }, if mode == 0 { "#c93424" } else { "var(--accent)" }, 2.0);
+    if mode == 0 {
+        try svg::text(allocator, out, 354.0, 114.0, 14.0, "middle", "#ff8b7b", "800", false, "本番決済 API");
+        try svg::text(allocator, out, 354.0, 142.0, 11.0, "middle", "#f2f0e9", "600", false, "実際に課金・障害再現不可");
+    } else if mode == 1 {
+        try svg::text(allocator, out, 354.0, 110.0, 14.0, "middle", "#7be3a6", "800", true, "MOCK: 200 OK");
+        try svg::text(allocator, out, 354.0, 140.0, 11.0, "middle", "var(--paper)", "600", false, "正常画面を安全に即テスト");
+    } else if mode == 2 {
+        try svg::text(allocator, out, 354.0, 110.0, 14.0, "middle", "#ff8b7b", "800", true, "MOCK: 500 ERROR");
+        try svg::text(allocator, out, 354.0, 140.0, 11.0, "middle", "var(--paper)", "600", false, "サーバー障害表示を自在に再現");
+    } else {
+        try svg::text(allocator, out, 354.0, 110.0, 14.0, "middle", "#ffc266", "800", true, "MOCK: DELAY 3s");
+        try svg::text(allocator, out, 354.0, 140.0, 11.0, "middle", "var(--paper)", "600", false, "ローディング・タイムアウト検証");
+    }
+    try svg::text(allocator, out, 240.0, 234.0, 12.0, "middle", "var(--muted)", "600", false,
+        if mode == 0 { "本番外部サーバーは気軽に壊せず検証しにくい" } else { "身代わり(モック)に差し替えて安全に異常系まで検証" });
+    try svg::end(allocator, out);
+
+    if mode == 0 { try readout.append_bytes(allocator, "本番直結 / 課金・エラー再現が危険"); }
+    else if mode == 1 { try readout.append_bytes(allocator, "モック 200 / 正常系を即検証"); }
+    else if mode == 2 { try readout.append_bytes(allocator, "モック 500 / 障害画面を安全再現"); }
+    else { try readout.append_bytes(allocator, "モック遅延 / タイムアウト挙動を検証"); }
+    try hint.append_bytes(allocator, "外部APIをモックに差し替えて500エラーとタイムアウト時の表示をテストする");
+    return;
+}
+
+// 41: Smoke test vs full suite (p0=level 0:smoke 1:integration 2:full)
+fn demo_smoke_test(allocator: Allocator, p: params::Params, out: &var string::String, readout: &var string::String, hint: &var string::String) -> mem::Error!void {
+    let lv = svg::clamp_i32(p.p0, 0, 2);
+
+    try svg::begin(allocator, out, 480, 270);
+    try svg::rect(allocator, out, 0.0, 0.0, 480.0, 270.0, 8.0, "var(--sheet)", "var(--rule)", 1.0);
+
+    let total_dots: i64 = 30;
+    let checked: i64 = if lv == 0 { 3 } else if lv == 1 { 12 } else { 30 };
+    for 0..total_dots |i| {
+        let col = i % 10;
+        let row = i / 10;
+        let x = 44.0 + cast<f64>(col) * 40.0;
+        let y = 44.0 + cast<f64>(row) * 40.0;
+        let on = i < checked;
+        try svg::rect(allocator, out, x, y, 28.0, 28.0, 5.0, if on { "var(--accent)" } else { "var(--grid)" }, "var(--rule)", 1.0);
+    }
+
+    // Time bar
+    try svg::text(allocator, out, 44.0, 184.0, 11.0, "start", "var(--muted)", "700", true, "RUN TIME");
+    try svg::rect(allocator, out, 44.0, 194.0, 392.0, 22.0, 4.0, "var(--grid)", "", 0.0);
+    let tw = if lv == 0 { 28.0 } else if lv == 1 { 140.0 } else { 392.0 };
+    try svg::rect(allocator, out, 44.0, 194.0, tw, 22.0, 4.0, "var(--ink)", "", 0.0);
+    try svg::text(allocator, out, 240.0, 244.0, 12.0, "middle", "var(--ink)", "700", false,
+        if lv == 0 { "スモークテスト (4秒): 起動・表示・保存の3点だけ最速確認" } else if lv == 1 { "結合テスト (45秒): 主要フローとAPI連携を確認" } else { "フルE2E (6分): 全画面・全異常系を網羅" });
+    try svg::end(allocator, out);
+
+    if lv == 0 { try readout.append_bytes(allocator, "スモーク: 3項目 / 4秒 (毎回の生死確認)"); }
+    else if lv == 1 { try readout.append_bytes(allocator, "結合: 12項目 / 45秒"); }
+    else { try readout.append_bytes(allocator, "フルE2E: 30項目 / 6分 (出荷前の網羅)"); }
+    try hint.append_bytes(allocator, "起動・検索・主要操作だけ通るスモークテストを最速で回るように作る");
+    return;
+}

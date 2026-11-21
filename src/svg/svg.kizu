@@ -1,0 +1,247 @@
+// SVG builder and color/math utilities for deterministic Kizu SVG demos.
+import std::fmt;
+import std::math;
+import std::mem;
+import std::string;
+
+pub fn clamp_i32(v: i32, lo: i32, hi: i32) -> i32 {
+    if v < lo { return lo; }
+    if v > hi { return hi; }
+    return v;
+}
+
+pub fn clamp_f64(v: f64, lo: f64, hi: f64) -> f64 {
+    if v < lo { return lo; }
+    if v > hi { return hi; }
+    return v;
+}
+
+pub fn lerp(a: f64, b: f64, t: f64) -> f64 {
+    return a + (b - a) * t;
+}
+
+pub fn append_int(allocator: Allocator, out: &var string::String, v: i64) -> mem::Error!void {
+    try fmt::append_i64(allocator, out, v);
+    return;
+}
+
+// Appends a number rounded to 1 decimal place (e.g. 12.5 or -3.0 -> -3.0).
+pub fn append_f1(allocator: Allocator, out: &var string::String, v: f64) -> mem::Error!void {
+    let scaled = cast<i64>(math::round<f64>(v * 10.0));
+    var abs_s = scaled;
+    if scaled < 0 {
+        try out.append_byte(allocator, 45);
+        abs_s = -scaled;
+    }
+    let whole = abs_s / 10;
+    let frac = abs_s % 10;
+    try fmt::append_i64(allocator, out, whole);
+    if frac != 0 {
+        try out.append_byte(allocator, 46);
+        try fmt::append_i64(allocator, out, frac);
+    }
+    return;
+}
+
+// Always includes 1 decimal place (e.g. 7.0) for metrics display.
+pub fn append_fixed1(allocator: Allocator, out: &var string::String, v: f64) -> mem::Error!void {
+    let scaled = cast<i64>(math::round<f64>(v * 10.0));
+    var abs_s = scaled;
+    if scaled < 0 {
+        try out.append_byte(allocator, 45);
+        abs_s = -scaled;
+    }
+    try fmt::append_i64(allocator, out, abs_s / 10);
+    try out.append_byte(allocator, 46);
+    try fmt::append_i64(allocator, out, abs_s % 10);
+    return;
+}
+
+fn append_hex_byte(allocator: Allocator, out: &var string::String, b: i32) -> mem::Error!void {
+    let c = clamp_i32(b, 0, 255);
+    let hi = (c >> 4) & 15;
+    let lo = c & 15;
+    if hi < 10 { try out.append_byte(allocator, cast<u8>(48 + hi)); } else { try out.append_byte(allocator, cast<u8>(87 + hi)); }
+    if lo < 10 { try out.append_byte(allocator, cast<u8>(48 + lo)); } else { try out.append_byte(allocator, cast<u8>(87 + lo)); }
+    return;
+}
+
+pub fn append_rgb(allocator: Allocator, out: &var string::String, r: i32, g: i32, b: i32) -> mem::Error!void {
+    try out.append_byte(allocator, 35);
+    try append_hex_byte(allocator, out, r);
+    try append_hex_byte(allocator, out, g);
+    try append_hex_byte(allocator, out, b);
+    return;
+}
+
+pub fn append_rgb_lerp(
+    allocator: Allocator,
+    out: &var string::String,
+    r1: i32, g1: i32, b1: i32,
+    r2: i32, g2: i32, b2: i32,
+    t: f64,
+) -> mem::Error!void {
+    let u = clamp_f64(t, 0.0, 1.0);
+    let r = cast<i32>(math::round<f64>(lerp(cast<f64>(r1), cast<f64>(r2), u)));
+    let g = cast<i32>(math::round<f64>(lerp(cast<f64>(g1), cast<f64>(g2), u)));
+    let b = cast<i32>(math::round<f64>(lerp(cast<f64>(b1), cast<f64>(b2), u)));
+    try append_rgb(allocator, out, r, g, b);
+    return;
+}
+
+fn srgb_channel(c255: i32) -> f64 {
+    let c = clamp_f64(cast<f64>(c255) / 255.0, 0.0, 1.0);
+    if c <= 0.03928 {
+        return c / 12.92;
+    }
+    return math::pow<f64>((c + 0.055) / 1.055, 2.4);
+}
+
+pub fn relative_luminance(r: i32, g: i32, b: i32) -> f64 {
+    return 0.2126 * srgb_channel(r) + 0.7152 * srgb_channel(g) + 0.0722 * srgb_channel(b);
+}
+
+pub fn contrast_ratio(r1: i32, g1: i32, b1: i32, r2: i32, g2: i32, b2: i32) -> f64 {
+    let l1 = relative_luminance(r1, g1, b1);
+    let l2 = relative_luminance(r2, g2, b2);
+    let hi = math::max<f64>(l1, l2);
+    let lo = math::min<f64>(l1, l2);
+    return (hi + 0.05) / (lo + 0.05);
+}
+
+pub fn begin(allocator: Allocator, out: &var string::String, w: i32, h: i32) -> mem::Error!void {
+    try out.append_bytes(allocator, "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 ");
+    try append_int(allocator, out, cast<i64>(w));
+    try out.append_byte(allocator, 32);
+    try append_int(allocator, out, cast<i64>(h));
+    try out.append_bytes(allocator, "' width='100%' height='100%' preserveAspectRatio='xMidYMid meet'>");
+    return;
+}
+
+pub fn end(allocator: Allocator, out: &var string::String) -> mem::Error!void {
+    try out.append_bytes(allocator, "</svg>");
+    return;
+}
+
+pub fn rect(
+    allocator: Allocator,
+    out: &var string::String,
+    x: f64, y: f64, w: f64, h: f64, rx: f64,
+    fill: []u8, stroke: []u8, sw: f64,
+) -> mem::Error!void {
+    try out.append_bytes(allocator, "<rect x='");
+    try append_f1(allocator, out, x);
+    try out.append_bytes(allocator, "' y='");
+    try append_f1(allocator, out, y);
+    try out.append_bytes(allocator, "' width='");
+    try append_f1(allocator, out, w);
+    try out.append_bytes(allocator, "' height='");
+    try append_f1(allocator, out, h);
+    if rx > 0.0 {
+        try out.append_bytes(allocator, "' rx='");
+        try append_f1(allocator, out, rx);
+    }
+    try out.append_bytes(allocator, "' fill='");
+    try out.append_bytes(allocator, fill);
+    if mem::len(stroke) > 0 {
+        try out.append_bytes(allocator, "' stroke='");
+        try out.append_bytes(allocator, stroke);
+        try out.append_bytes(allocator, "' stroke-width='");
+        try append_f1(allocator, out, sw);
+    }
+    try out.append_bytes(allocator, "'/>");
+    return;
+}
+
+pub fn circle(
+    allocator: Allocator,
+    out: &var string::String,
+    cx: f64, cy: f64, r: f64,
+    fill: []u8, stroke: []u8, sw: f64,
+) -> mem::Error!void {
+    try out.append_bytes(allocator, "<circle cx='");
+    try append_f1(allocator, out, cx);
+    try out.append_bytes(allocator, "' cy='");
+    try append_f1(allocator, out, cy);
+    try out.append_bytes(allocator, "' r='");
+    try append_f1(allocator, out, r);
+    try out.append_bytes(allocator, "' fill='");
+    try out.append_bytes(allocator, fill);
+    if mem::len(stroke) > 0 {
+        try out.append_bytes(allocator, "' stroke='");
+        try out.append_bytes(allocator, stroke);
+        try out.append_bytes(allocator, "' stroke-width='");
+        try append_f1(allocator, out, sw);
+    }
+    try out.append_bytes(allocator, "'/>");
+    return;
+}
+
+pub fn line(
+    allocator: Allocator,
+    out: &var string::String,
+    x1: f64, y1: f64, x2: f64, y2: f64,
+    stroke: []u8, sw: f64, dash: []u8,
+) -> mem::Error!void {
+    try out.append_bytes(allocator, "<line x1='");
+    try append_f1(allocator, out, x1);
+    try out.append_bytes(allocator, "' y1='");
+    try append_f1(allocator, out, y1);
+    try out.append_bytes(allocator, "' x2='");
+    try append_f1(allocator, out, x2);
+    try out.append_bytes(allocator, "' y2='");
+    try append_f1(allocator, out, y2);
+    try out.append_bytes(allocator, "' stroke='");
+    try out.append_bytes(allocator, stroke);
+    try out.append_bytes(allocator, "' stroke-width='");
+    try append_f1(allocator, out, sw);
+    if mem::len(dash) > 0 {
+        try out.append_bytes(allocator, "' stroke-dasharray='");
+        try out.append_bytes(allocator, dash);
+    }
+    try out.append_bytes(allocator, "' stroke-linecap='round'/>");
+    return;
+}
+
+pub fn text(
+    allocator: Allocator,
+    out: &var string::String,
+    x: f64, y: f64, size: f64,
+    anchor: []u8, fill: []u8, weight: []u8, mono: bool,
+    body: []u8,
+) -> mem::Error!void {
+    try out.append_bytes(allocator, "<text x='");
+    try append_f1(allocator, out, x);
+    try out.append_bytes(allocator, "' y='");
+    try append_f1(allocator, out, y);
+    try out.append_bytes(allocator, "' font-size='");
+    try append_f1(allocator, out, size);
+    try out.append_bytes(allocator, "' text-anchor='");
+    try out.append_bytes(allocator, anchor);
+    try out.append_bytes(allocator, "' fill='");
+    try out.append_bytes(allocator, fill);
+    if mem::len(weight) > 0 {
+        try out.append_bytes(allocator, "' font-weight='");
+        try out.append_bytes(allocator, weight);
+    }
+    if mono {
+        try out.append_bytes(allocator, "' font-family='var(--mono)");
+    } else {
+        try out.append_bytes(allocator, "' font-family='var(--jp)");
+    }
+    try out.append_bytes(allocator, "'>");
+    try out.append_bytes(allocator, body);
+    try out.append_bytes(allocator, "</text>");
+    return;
+}
+
+pub fn badge(
+    allocator: Allocator,
+    out: &var string::String,
+    x: f64, y: f64, w: f64, h: f64,
+    fill: []u8, ink: []u8, label: []u8,
+) -> mem::Error!void {
+    try rect(allocator, out, x, y, w, h, 4.0, fill, "", 0.0);
+    try text(allocator, out, x + w * 0.5, y + h * 0.67, 11.0, "middle", ink, "700", true, label);
+    return;
+}

@@ -1,0 +1,6 @@
+[package]
+name = "domain_words"
+version = "0.1.0"
+
+[modules]
+paths = ["src"]

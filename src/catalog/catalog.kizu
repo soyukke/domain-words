@@ -1,0 +1,269 @@
+// Catalog index and fuzzy/symptom search engine in Kizu.
+// Index format (TSV per line, loaded from data/words.json via bridge):
+//   idx\tcategory_id\tid\ttitle\ten\tsymptoms\tsummary
+import std::array;
+import std::fmt;
+import std::mem;
+import std::string;
+
+pub struct Entry {
+    pub idx: i32,
+    pub cat: i32,
+    pub id_start: i64,
+    pub id_end: i64,
+    pub title_start: i64,
+    pub title_end: i64,
+    pub en_start: i64,
+    pub en_end: i64,
+    pub sym_start: i64,
+    pub sym_end: i64,
+    pub sum_start: i64,
+    pub sum_end: i64,
+}
+
+pub struct Catalog {
+    pub raw: string::String,
+    pub entries: array::Array<Entry>,
+}
+
+pub fn (self: Catalog) deinit(allocator: Allocator) -> void {
+    self.raw.deinit(allocator);
+    self.entries.deinit(allocator);
+    return;
+}
+
+fn find_byte(buf: []u8, start: i64, end: i64, needle: u8) -> i64 {
+    var i = start;
+    while i < end {
+        if buf[i] == needle {
+            return i;
+        }
+        i = i + 1;
+    }
+    return end;
+}
+
+fn parse_i32(buf: []u8, start: i64, end: i64) -> i32 {
+    var v: i32 = 0;
+    var neg = false;
+    var i = start;
+    if i < end and buf[i] == 45 {
+        neg = true;
+        i = i + 1;
+    }
+    while i < end {
+        let c = buf[i];
+        if c >= 48 and c <= 57 {
+            v = v * 10 + cast<i32>(c - 48);
+        }
+        i = i + 1;
+    }
+    if neg { return -v; }
+    return v;
+}
+
+fn index_text(allocator: Allocator, text: &string::String, entries: &var array::Array<Entry>) -> mem::Error!void {
+    let bytes = text.as_bytes();
+    let total = mem::len(bytes);
+    var pos: i64 = 0;
+    while pos < total {
+        let line_end = find_byte(bytes, pos, total, 10);
+        if line_end > pos {
+            let t1 = find_byte(bytes, pos, line_end, 9);
+            let t2 = find_byte(bytes, t1 + 1, line_end, 9);
+            let t3 = find_byte(bytes, t2 + 1, line_end, 9);
+            let t4 = find_byte(bytes, t3 + 1, line_end, 9);
+            let t5 = find_byte(bytes, t4 + 1, line_end, 9);
+            let t6 = find_byte(bytes, t5 + 1, line_end, 9);
+            if t5 < line_end {
+                try entries.append(allocator, Entry {
+                    idx: parse_i32(bytes, pos, t1),
+                    cat: parse_i32(bytes, t1 + 1, t2),
+                    id_start: t2 + 1,
+                    id_end: t3,
+                    title_start: t3 + 1,
+                    title_end: t4,
+                    en_start: t4 + 1,
+                    en_end: t5,
+                    sym_start: t5 + 1,
+                    sym_end: t6,
+                    sum_start: if t6 < line_end { t6 + 1 } else { line_end },
+                    sum_end: line_end,
+                });
+            }
+        }
+        pos = line_end + 1;
+    }
+    return;
+}
+
+pub fn build(allocator: Allocator, text: string::String) -> mem::Error!Catalog {
+    errdefer text.deinit(allocator);
+    var entries = array::new<Entry>(allocator);
+    errdefer entries.deinit(allocator);
+    try index_text(allocator, &text, &var entries);
+    return Catalog {
+        raw: move text,
+        entries: move entries,
+    };
+}
+
+fn ascii_lower(b: u8) -> u8 {
+    if b >= 65 and b <= 90 {
+        return b + 32;
+    }
+    return b;
+}
+
+fn contains_ci(hay: []u8, h_start: i64, h_end: i64, needle: []u8, n_start: i64, n_end: i64) -> bool {
+    let n_len = n_end - n_start;
+    if n_len <= 0 {
+        return true;
+    }
+    let h_len = h_end - h_start;
+    if n_len > h_len {
+        return false;
+    }
+    let limit = h_end - n_len;
+    var i = h_start;
+    while i <= limit {
+        var matched = true;
+        var j: i64 = 0;
+        while j < n_len {
+            if ascii_lower(hay[i + j]) != ascii_lower(needle[n_start + j]) {
+                matched = false;
+                break;
+            }
+            j = j + 1;
+        }
+        if matched {
+            return true;
+        }
+        i = i + 1;
+    }
+    return false;
+}
+
+fn starts_with_ci(hay: []u8, h_start: i64, h_end: i64, needle: []u8, n_start: i64, n_end: i64) -> bool {
+    let n_len = n_end - n_start;
+    if n_len <= 0 or h_end - h_start < n_len {
+        return false;
+    }
+    var j: i64 = 0;
+    while j < n_len {
+        if ascii_lower(hay[h_start + j]) != ascii_lower(needle[n_start + j]) {
+            return false;
+        }
+        j = j + 1;
+    }
+    return true;
+}
+
+fn is_space(b: u8) -> bool {
+    return b == 32 or b == 9 or b == 10 or b == 13;
+}
+
+fn score_entry(raw: []u8, e: Entry, query: []u8) -> i32 {
+    let q_len = mem::len(query);
+    var total_score: i32 = 0;
+    var tokens: i32 = 0;
+    var pos: i64 = 0;
+    while pos < q_len {
+        while pos < q_len and is_space(query[pos]) {
+            pos = pos + 1;
+        }
+        if pos >= q_len {
+            break;
+        }
+        var end = pos;
+        while end < q_len and !is_space(query[end]) {
+            end = end + 1;
+        }
+        tokens = tokens + 1;
+        var tok_score: i32 = 0;
+        if starts_with_ci(raw, e.title_start, e.title_end, query, pos, end) {
+            tok_score = tok_score + 100;
+        } else if contains_ci(raw, e.title_start, e.title_end, query, pos, end) {
+            tok_score = tok_score + 70;
+        }
+        if starts_with_ci(raw, e.en_start, e.en_end, query, pos, end) {
+            tok_score = tok_score + 85;
+        } else if contains_ci(raw, e.en_start, e.en_end, query, pos, end) {
+            tok_score = tok_score + 55;
+        }
+        if contains_ci(raw, e.id_start, e.id_end, query, pos, end) {
+            tok_score = tok_score + 50;
+        }
+        if contains_ci(raw, e.sym_start, e.sym_end, query, pos, end) {
+            tok_score = tok_score + 65;
+        }
+        if contains_ci(raw, e.sum_start, e.sum_end, query, pos, end) {
+            tok_score = tok_score + 30;
+        }
+        if tok_score == 0 {
+            return 0;
+        }
+        total_score = total_score + tok_score;
+        pos = end;
+    }
+    if tokens == 0 {
+        return 1;
+    }
+    return total_score;
+}
+
+struct Hit {
+    idx: i32,
+    score: i32,
+}
+
+// Writes matching word indices as comma-separated ASCII integers (sorted by score desc, then idx asc).
+pub fn search(
+    allocator: Allocator,
+    cat: &Catalog,
+    category_filter: i32,
+    query: []u8,
+    out: &var string::String,
+) -> mem::Error!void {
+    let raw = cat.raw.as_bytes();
+    var hits = array::new<Hit>(allocator);
+    defer hits.deinit(allocator);
+
+    for 0..cat.entries.len() |i| {
+        let e = cat.entries.get_or_panic(i);
+        if category_filter >= 0 and e.cat != category_filter {
+            continue;
+        }
+        let sc = score_entry(raw, e, query);
+        if sc > 0 {
+            try hits.append(allocator, Hit { idx: e.idx, score: sc });
+        }
+    }
+
+    // Insertion sort (at most ~100 entries, deterministic and zero-alloc).
+    let n = hits.len();
+    var i: i64 = 1;
+    while i < n {
+        let key = hits.get_or_panic(i);
+        var j = i - 1;
+        while j >= 0 {
+            let cur = hits.get_or_panic(j);
+            if cur.score < key.score or (cur.score == key.score and cur.idx > key.idx) {
+                let _ = hits.set(j + 1, cur);
+                j = j - 1;
+            } else {
+                break;
+            }
+        }
+        let _ = hits.set(j + 1, key);
+        i = i + 1;
+    }
+
+    for 0..n |k| {
+        if k > 0 {
+            try out.append_byte(allocator, 44);
+        }
+        try fmt::append_i64(allocator, out, cast<i64>(hits.get_or_panic(k).idx));
+    }
+    return;
+}

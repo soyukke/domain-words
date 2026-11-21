@@ -1,0 +1,24 @@
+// Shared demo parameters and output structure.
+import std::string;
+
+pub struct Params {
+    pub p0: i32,
+    pub p1: i32,
+    pub p2: i32,
+    pub p3: i32,
+    pub tick: i32,
+    pub action: i32,
+}
+
+pub struct RenderResult {
+    pub svg: string::String,
+    pub readout: string::String,
+    pub prompt_hint: string::String,
+}
+
+pub fn (self: RenderResult) deinit(allocator: Allocator) -> void {
+    self.svg.deinit(allocator);
+    self.readout.deinit(allocator);
+    self.prompt_hint.deinit(allocator);
+    return;
+}

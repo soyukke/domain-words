@@ -1,0 +1,1002 @@
+{
+  "categories": [
+    { "id": 0, "slug": "illustration", "label": "イラスト" },
+    { "id": 1, "slug": "design", "label": "サムネ・デザイン" },
+    { "id": 2, "slug": "video", "label": "動画構成" },
+    { "id": 3, "slug": "music", "label": "音楽・BGM" },
+    { "id": 4, "slug": "se", "label": "SE・効果音" },
+    { "id": 5, "slug": "dev", "label": "プログラム" },
+    { "id": 6, "slug": "qa", "label": "テスト・QA" },
+    { "id": 7, "slug": "game", "label": "ゲームデザイン" },
+    { "id": 8, "slug": "uiux", "label": "UI / UX" }
+  ],
+  "symptoms": [
+    { "label": "のっぺりする", "query": "のっぺり" },
+    { "label": "ごちゃつく", "query": "ごちゃつく" },
+    { "label": "メリハリがない", "query": "メリハリ" },
+    { "label": "読めない", "query": "読めない" },
+    { "label": "テンポが悪い", "query": "テンポ" },
+    { "label": "音にキレがない", "query": "キレ" },
+    { "label": "音が埋もれる", "query": "埋もれる" },
+    { "label": "反応が鈍い", "query": "反応" },
+    { "label": "勝手に壊れた", "query": "壊れ" },
+    { "label": "押せるか迷う", "query": "押せる" }
+  ],
+  "words": [
+    {
+      "idx": 0, "id": "rim-light", "cat": 0,
+      "title": "リムライト", "en": "Rim Light", "kind": "SVG",
+      "summary": "被写体の後ろから当てて輪郭の縁を細く光らせる光",
+      "symptoms": ["のっぺりする", "背景に埋もれる", "立体感がない", "暗い絵で輪郭が見えない"],
+      "before": "キャラをもっとかっこよく目立たせて",
+      "after": "背景からキャラを分離させるため、{hint}を輪郭に細く入れて",
+      "compare": [
+        { "term": "キーライト", "diff": "被写体を正面〜斜め前から照らす主光源" },
+        { "term": "環境光", "diff": "空間全体を均一に底上げする影側の光" }
+      ],
+      "related": ["value-contrast", "aerial-perspective", "silhouette"],
+      "defaults": { "p0": 78, "p1": 0, "p2": 1, "p3": 0 },
+      "controls": [
+        { "key": "p0", "type": "range", "label": "光の強さ", "min": 0, "max": 100, "unit": "%" },
+        { "key": "p1", "type": "choice", "label": "光源の向き", "options": ["右後ろ", "左後ろ", "真上"] },
+        { "key": "p2", "type": "choice", "label": "光の色温度", "options": ["寒色", "暖色"] }
+      ]
+    },
+    {
+      "idx": 1, "id": "aerial-perspective", "cat": 0,
+      "title": "空気遠近法", "en": "Aerial Perspective", "kind": "SVG",
+      "summary": "遠くの物ほど大気で霞ませ彩度とコントラストを落とす表現",
+      "symptoms": ["奥行きがない", "のっぺりする", "手前と奥が混ざる", "背景がうるさい"],
+      "before": "背景を遠くまで広がっている感じにして",
+      "after": "手前と奥の距離感を出すため、{hint}にして",
+      "compare": [
+        { "term": "線遠近法(パース)", "diff": "遠くの物を小さく描いて形と消失点で奥行きを出す手法" },
+        { "term": "被写界深度(ボケ)", "diff": "カメラのピント外をぼかして距離を表す手法" }
+      ],
+      "related": ["rim-light", "value-contrast", "rule-of-thirds"],
+      "defaults": { "p0": 76, "p1": 0, "p2": 0, "p3": 0 },
+      "controls": [
+        { "key": "p0", "type": "range", "label": "大気の霞", "min": 0, "max": 100, "unit": "%" },
+        { "key": "p1", "type": "choice", "label": "時間帯", "options": ["昼の空", "夕景"] }
+      ]
+    },
+    {
+      "idx": 2, "id": "camera-angle", "cat": 0,
+      "title": "アオリ・俯瞰", "en": "Low / High Angle", "kind": "SVG",
+      "summary": "カメラの高さとアイレベルの位置で威圧感や状況説明を変える構図",
+      "symptoms": ["構図が単調", "迫力がない", "棒立ちに見える", "全体を見せたい"],
+      "before": "ボスを強そうに見える構図で描いて",
+      "after": "視線の印象を強めるため、{hint}にして",
+      "compare": [
+        { "term": "アイレベル", "diff": "被写体と同じ目線の高さ。等身大で自然な印象になる" },
+        { "term": "真俯瞰(バードアイ)", "diff": "真上から見下ろす配置図のような視点" }
+      ],
+      "related": ["rule-of-thirds", "silhouette", "aerial-perspective"],
+      "defaults": { "p0": -70, "p1": 1, "p2": 0, "p3": 0 },
+      "controls": [
+        { "key": "p0", "type": "range", "label": "カメラ高さ", "min": -100, "max": 100, "unit": "" },
+        { "key": "p1", "type": "toggle", "label": "アイレベル線を表示" }
+      ]
+    },
+    {
+      "idx": 3, "id": "silhouette", "cat": 0,
+      "title": "シルエット", "en": "Silhouette", "kind": "SVG",
+      "summary": "黒1色に塗りつぶしてもキャラや動作が判別できる輪郭の形",
+      "symptoms": ["ポーズが分かりにくい", "縮小すると潰れる", "見た目がごちゃつく"],
+      "before": "キャラのアクションを分かりやすく描いて",
+      "after": "小さく表示しても動作が一目で伝わるよう、{hint}にして",
+      "compare": [
+        { "term": "ネガティブスペース", "diff": "腕と胴体の間など、輪郭を際立たせる外側の空き領域" },
+        { "term": "ディテール密度", "diff": "内側の描き込み量。輪郭が潰れていると細部を増やしても読みにくい" }
+      ],
+      "related": ["rim-light", "camera-angle", "value-contrast"],
+      "defaults": { "p0": 1, "p1": 1, "p2": 0, "p3": 0 },
+      "controls": [
+        { "key": "p0", "type": "choice", "label": "ポーズ", "options": ["重なり多め(NG)", "抜けあり(OK)"] },
+        { "key": "p1", "type": "toggle", "label": "黒1色シルエット確認" }
+      ]
+    },
+    {
+      "idx": 4, "id": "value-contrast", "cat": 0,
+      "title": "明度・彩度コントラスト", "en": "Value & Saturation Contrast", "kind": "SVG",
+      "summary": "背景を抑えて主役まわりに最も強い明暗差を集める視線制御",
+      "symptoms": ["どこを見ていいか分からない", "目がチカチカする", "メリハリがない", "主役が埋もれる"],
+      "before": "主役をもっと目立つ色にして",
+      "after": "視線を自然に主役へ集めるため、{hint}",
+      "compare": [
+        { "term": "色相コントラスト", "diff": "赤と青など色の種類を変える対比。明度が同じだと白黒で潰れる" },
+        { "term": "コントラスト比", "diff": "UI文字と背景の読みやすさを数値化した指標" }
+      ],
+      "related": ["rim-light", "contrast-ratio", "color-ratio"],
+      "defaults": { "p0": 82, "p1": 0, "p2": 0, "p3": 0 },
+      "controls": [
+        { "key": "p0", "type": "range", "label": "背景の彩度・明度抑制", "min": 0, "max": 100, "unit": "%" },
+        { "key": "p1", "type": "toggle", "label": "グレースケール確認" }
+      ]
+    },
+    {
+      "idx": 5, "id": "rule-of-thirds", "cat": 0,
+      "title": "三分割法・余白の抜け", "en": "Rule of Thirds & Lead Room", "kind": "SVG",
+      "summary": "縦横3分割の交点へ主題を置き視線の先へ空間を空ける構図",
+      "symptoms": ["画面が窮屈", "素人っぽい", "文字を置く場所がない", "日の丸構図になる"],
+      "before": "おしゃれなバランスで配置して",
+      "after": "広がりと文字配置の余裕を作るため、{hint}",
+      "compare": [
+        { "term": "日の丸構図", "diff": "中央に大きく置く構図。象徴的だが動きや余白は出にくい" },
+        { "term": "リードルーム", "diff": "キャラの視線や進行方向の先に空ける抜け空間" }
+      ],
+      "related": ["camera-angle", "whitespace-proximity", "eye-flow"],
+      "defaults": { "p0": 1, "p1": 1, "p2": 0, "p3": 0 },
+      "controls": [
+        { "key": "p0", "type": "choice", "label": "配置", "options": ["中央(日の丸)", "三分割+抜け", "視線詰まり"] },
+        { "key": "p1", "type": "toggle", "label": "三分割グリッド" }
+      ]
+    },
+    {
+      "idx": 6, "id": "jump-ratio", "cat": 1,
+      "title": "ジャンプ率", "en": "Jump Ratio", "kind": "SVG",
+      "summary": "主見出しと補足文の文字サイズ比率。大きいほど勢いとメリハリが増す",
+      "symptoms": ["サムネが地味", "メリハリがない", "どこが主題か分からない", "文字が弱い"],
+      "before": "サムネの文字をもっとインパクトある感じにして",
+      "after": "一目で主題が飛び込むよう、{hint}して",
+      "compare": [
+        { "term": "ウェイト(太さ)", "diff": "文字線の太さ。サイズ差と太さ差を組み合わせるとさらに明快になる" },
+        { "term": "視覚的階層", "diff": "大きさ・太さ・色・余白で読む順番を設計する考え方" }
+      ],
+      "related": ["kerning-tracking", "contrast-ratio", "eye-flow"],
+      "defaults": { "p0": 32, "p1": 1, "p2": 0, "p3": 0 },
+      "controls": [
+        { "key": "p0", "type": "range", "label": "サイズ比 (x0.1)", "min": 11, "max": 40, "unit": "" },
+        { "key": "p1", "type": "toggle", "label": "太さ(ウェイト)差を付ける" }
+      ]
+    },
+    {
+      "idx": 7, "id": "kerning-tracking", "cat": 1,
+      "title": "カーニング・トラッキング", "en": "Kerning & Tracking", "kind": "SVG",
+      "summary": "全体の字間(トラッキング)と特定文字ペアの視覚調整(カーニング)",
+      "symptoms": ["文字が間延びする", "ロゴっぽくない", "素人っぽい", "カタカナや記号が浮く"],
+      "before": "タイトル文字をプロっぽい見た目に整えて",
+      "after": "見出しの密度を整えるため、{hint}",
+      "compare": [
+        { "term": "トラッキング", "diff": "文字列全体の字間を一律に広げたり詰めたりする調整" },
+        { "term": "カーニング", "diff": "「グ！」や「AV」など特定2文字の隙間を視覚的に均等にする個別調整" }
+      ],
+      "related": ["jump-ratio", "whitespace-proximity", "contrast-ratio"],
+      "defaults": { "p0": -2, "p1": 1, "p2": 0, "p3": 0 },
+      "controls": [
+        { "key": "p0", "type": "range", "label": "全体字間(トラッキング)", "min": -8, "max": 18, "unit": "" },
+        { "key": "p1", "type": "toggle", "label": "ペア詰め(カーニング)" }
+      ]
+    },
+    {
+      "idx": 8, "id": "whitespace-proximity", "cat": 1,
+      "title": "余白・近接", "en": "Whitespace & Proximity", "kind": "SVG",
+      "summary": "枠線を増やさず距離の近さと余白の広さで情報の塊を分ける原則",
+      "symptoms": ["ごちゃつく", "枠線だらけ", "どこまでが同じ項目か分からない", "窮屈"],
+      "before": "設定画面を見やすくすっきり整理して",
+      "after": "枠線で囲みすぎず、{hint}",
+      "compare": [
+        { "term": "パディング", "diff": "箱の内側の余白" },
+        { "term": "マージン", "diff": "箱と箱の間の外側の余白。別グループ間ほど広く取る" }
+      ],
+      "related": ["eye-flow", "button-hierarchy", "rule-of-thirds"],
+      "defaults": { "p0": 32, "p1": 1, "p2": 0, "p3": 0 },
+      "controls": [
+        { "key": "p0", "type": "range", "label": "グループ間余白", "min": 4, "max": 44, "unit": "px" },
+        { "key": "p1", "type": "toggle", "label": "枠線を外して近接で整理" }
+      ]
+    },
+    {
+      "idx": 9, "id": "contrast-ratio", "cat": 1,
+      "title": "コントラスト比", "en": "Contrast Ratio", "kind": "SVG",
+      "summary": "文字と背景の輝度差の比率。本文は4.5:1以上(AA)が可読性の目安",
+      "symptoms": ["読めない", "写真の上の文字が潰れる", "薄いグレーで見づらい"],
+      "before": "背景写真の上の文字を読みやすくして",
+      "after": "小さな画面でもはっきり読めるよう、{hint}",
+      "compare": [
+        { "term": "暗幕(スクリム)", "diff": "背景画像と文字の間に敷く半透明の暗い層。絵を壊さず可読性を上げる" },
+        { "term": "袋文字(縁取り)", "diff": "文字の輪郭を反対色で囲む手法。サムネ向きだが本文では重くなりやすい" }
+      ],
+      "related": ["safe-area", "value-contrast", "color-ratio"],
+      "defaults": { "p0": 165, "p1": 250, "p2": 52, "p3": 0 },
+      "controls": [
+        { "key": "p0", "type": "range", "label": "背景の明るさ", "min": 10, "max": 245, "unit": "" },
+        { "key": "p1", "type": "range", "label": "文字の明るさ", "min": 10, "max": 255, "unit": "" },
+        { "key": "p2", "type": "range", "label": "暗幕(スクリム)", "min": 0, "max": 85, "unit": "%" }
+      ]
+    },
+    {
+      "idx": 10, "id": "eye-flow", "cat": 1,
+      "title": "視線誘導", "en": "Visual Flow (Z / F)", "kind": "SVG",
+      "summary": "見る人の目が自然に動く順番(Z型・F型)に沿って要素を並べる設計",
+      "symptoms": ["情報は入れたのに伝わらない", "読む順番がバラバラ", "ごちゃつく"],
+      "before": "サムネと紹介ページのレイアウトを整えて",
+      "after": "見る順番を迷わせないよう、{hint}で配置して",
+      "compare": [
+        { "term": "Z型", "diff": "左上→右上→左下→右下。サムネやLPのように要素が少ない画面向き" },
+        { "term": "F型", "diff": "上部を横に見てから左端を縦に追う。記事や一覧リスト向き" }
+      ],
+      "related": ["whitespace-proximity", "jump-ratio", "rule-of-thirds"],
+      "defaults": { "p0": 1, "p1": 1, "p2": 0, "p3": 0 },
+      "controls": [
+        { "key": "p0", "type": "choice", "label": "配置パターン", "options": ["散乱", "Z型(LP)", "F型(一覧)"] },
+        { "key": "p1", "type": "toggle", "label": "視線軌跡を表示" }
+      ]
+    },
+    {
+      "idx": 11, "id": "color-ratio", "cat": 1,
+      "title": "配色比率 70:25:5", "en": "70-25-5 Color Rule", "kind": "SVG",
+      "summary": "ベース70%・メイン25%・アクセント5%の面積比で強調色を際立たせる型",
+      "symptoms": ["色がうるさい", "安っぽい", "ごちゃつく", "ボタンが目立たない"],
+      "before": "画面をいい感じの配色にして",
+      "after": "強調箇所が一目で分かるよう、{hint}、アクセント色は主操作に絞って",
+      "compare": [
+        { "term": "トーン", "diff": "明度と彩度の組み合わせ。同じトーンで揃えると多色でもまとまりやすい" },
+        { "term": "補色", "diff": "色相環の反対側の色。面積を絞ってアクセントに使うと明快" }
+      ],
+      "related": ["button-hierarchy", "value-contrast", "contrast-ratio"],
+      "defaults": { "p0": 5, "p1": 0, "p2": 0, "p3": 0 },
+      "controls": [
+        { "key": "p1", "type": "choice", "label": "プリセット", "options": ["理想 70:25:5", "均等崩壊", "手動調整"] },
+        { "key": "p0", "type": "range", "label": "アクセント面積", "min": 2, "max": 45, "unit": "%" }
+      ]
+    },
+    {
+      "idx": 12, "id": "jump-cut", "cat": 2,
+      "title": "ジャンプカット", "en": "Jump Cut", "kind": "SIM",
+      "summary": "同一画角のまま無音や言い淀みを切り落としてテンポを上げる編集",
+      "symptoms": ["テンポが悪い", "ダレる", "喋りが退屈", "間延びする"],
+      "before": "動画をもっとテンポよく編集して",
+      "after": "視聴テンポを上げるため、{hint}",
+      "compare": [
+        { "term": "クロスフェード", "diff": "前後を重ねて溶かす繋ぎ。時間経過や落ち着いた場面向き" },
+        { "term": "Jカット・Lカット", "diff": "別シーンへ滑らかに移るときに音と画の切替をずらす手法" }
+      ],
+      "related": ["j-l-cut", "pacing-beat", "b-roll"],
+      "defaults": { "p0": 1, "p1": 0, "p2": 0, "p3": 0 },
+      "anim": { "duration": 2200, "button": "タイムライン再生" },
+      "controls": [
+        { "key": "p0", "type": "choice", "label": "編集", "options": ["無編集(無音あり)", "ジャンプカットON"] }
+      ]
+    },
+    {
+      "idx": 13, "id": "j-l-cut", "cat": 2,
+      "title": "Jカット・Lカット", "en": "J-Cut & L-Cut", "kind": "SIM",
+      "summary": "映像と音声の切替点をずらして場面転換を滑らかに繋ぐ編集",
+      "symptoms": ["場面転換がブツ切り", "編集がカクカクする", "繋ぎ目が不自然"],
+      "before": "シーンの切り替わりをもっと自然にして",
+      "after": "ブツ切り感を消すため、{hint}",
+      "compare": [
+        { "term": "Jカット", "diff": "次のシーンの音声が映像より先に流れ始める(タイムラインがJ字)" },
+        { "term": "Lカット", "diff": "前のシーンの音声が次の映像まで残る(タイムラインがL字)" }
+      ],
+      "related": ["jump-cut", "b-roll", "pacing-beat"],
+      "defaults": { "p0": 1, "p1": 0, "p2": 0, "p3": 0 },
+      "anim": { "duration": 2400, "button": "切替を再生" },
+      "controls": [
+        { "key": "p0", "type": "choice", "label": "繋ぎ方", "options": ["同時切替", "Jカット(音先)", "Lカット(音残し)"] }
+      ]
+    },
+    {
+      "idx": 14, "id": "b-roll", "cat": 2,
+      "title": "Bロール・インサート", "en": "B-Roll / Insert", "kind": "SIM",
+      "summary": "喋り映像(Aロール)の上に操作画面や手元映像を重ねる画変わり",
+      "symptoms": ["同じ画面で飽きる", "説明対象が伝わらない", "画変わりがない"],
+      "before": "解説動画が退屈にならないようにして",
+      "after": "視覚的な飽きを防ぐため、{hint}",
+      "compare": [
+        { "term": "Aロール", "diff": "解説者や主軸ストーリーを映す本編トラック" },
+        { "term": "インサート", "diff": "話に出てきた物や手元を短くアップで差し込むカット" }
+      ],
+      "related": ["j-l-cut", "video-hook", "jump-cut"],
+      "defaults": { "p0": 1, "p1": 0, "p2": 0, "p3": 0 },
+      "anim": { "duration": 2600, "button": "画変わりを再生" },
+      "controls": [
+        { "key": "p0", "type": "choice", "label": "構成", "options": ["Aロール固定", "Bロール差し込み"] }
+      ]
+    },
+    {
+      "idx": 15, "id": "video-hook", "cat": 2,
+      "title": "フック(冒頭3秒)", "en": "Video Hook", "kind": "SVG",
+      "summary": "挨拶を省き冒頭3秒で結論や一番面白い瞬間を見せる引きの構成",
+      "symptoms": ["最初で離脱される", "前置きが長い", "見てもらえない"],
+      "before": "動画の最初の構成を良くして",
+      "after": "冒頭の離脱を防ぐため、挨拶を削って{hint}",
+      "compare": [
+        { "term": "ペーシング", "diff": "動画全体を通した情報密度とテンポの設計" },
+        { "term": "CTA", "diff": "動画の最後や要所で促す登録・リンク誘導などの次行動" }
+      ],
+      "related": ["pacing-beat", "b-roll", "jump-ratio"],
+      "defaults": { "p0": 1, "p1": 0, "p2": 0, "p3": 0 },
+      "controls": [
+        { "key": "p0", "type": "choice", "label": "冒頭構成", "options": ["挨拶・前置き型", "結論フック型"] }
+      ]
+    },
+    {
+      "idx": 16, "id": "safe-area", "cat": 2,
+      "title": "セーフエリア・座布団", "en": "Safe Area & Backdrop", "kind": "SVG",
+      "summary": "SNSのUIボタンに隠れない安全領域と、字幕下の半透明背景帯",
+      "symptoms": ["字幕がボタンに隠れる", "読めない", "ショート動画で切れる"],
+      "before": "ショート動画の字幕を見やすく配置して",
+      "after": "スマホのUI干渉と背景潰れを防ぐため、{hint}",
+      "compare": [
+        { "term": "座布団", "diff": "字幕やテロップの後ろに敷く半透明の四角帯。明暗の激しい映像でも読める" },
+        { "term": "アスペクト比", "diff": "画面の縦横比(横長16:9 / 縦長9:16)" }
+      ],
+      "related": ["contrast-ratio", "jump-ratio", "video-hook"],
+      "defaults": { "p0": 58, "p1": 1, "p2": 1, "p3": 0 },
+      "controls": [
+        { "key": "p0", "type": "range", "label": "字幕の縦位置", "min": 10, "max": 95, "unit": "%" },
+        { "key": "p1", "type": "toggle", "label": "座布団(半透明帯)" },
+        { "key": "p2", "type": "toggle", "label": "SNS UI干渉域を表示" }
+      ]
+    },
+    {
+      "idx": 17, "id": "pacing-beat", "cat": 2,
+      "title": "緩急・間(タメ)", "en": "Pacing & Beat", "kind": "SIM",
+      "summary": "見せ場の直前に短い無音や静止を置いて落差と記憶を作る間合い",
+      "symptoms": ["早口で疲れる", "メリハリがない", "オチが流れてしまう", "テンポが単調"],
+      "before": "もっと盛り上がる演出にして",
+      "after": "全体を均等に速くせず、{hint}",
+      "compare": [
+        { "term": "ジャンプカット", "diff": "不要な無音を詰める技術。意図的な「タメ」まで切ると平坦になる" },
+        { "term": "ブレイク(音楽)", "diff": "サビ直前に楽器を一斉に止めて落差を作る音楽版のタメ" }
+      ],
+      "related": ["fill-break", "hitstop", "jump-cut"],
+      "defaults": { "p0": 1, "p1": 0, "p2": 0, "p3": 0 },
+      "anim": { "duration": 2200, "button": "間合いを再生" },
+      "controls": [
+        { "key": "p0", "type": "choice", "label": "テンポ設計", "options": ["均一テンポ", "タメ(間)あり"] }
+      ]
+    },
+    {
+      "idx": 18, "id": "bpm", "cat": 3,
+      "title": "BPM(テンポ)", "en": "Beats Per Minute", "kind": "DSP",
+      "summary": "1分間の拍数。曲の速さと緊張感を数値で伝える基本指標",
+      "symptoms": ["曲の速さが伝わらない", "テンポが違う", "バトル感が出ない"],
+      "before": "ちょっと速めのバトル曲を作って",
+      "after": "場面のスピード感を揃えるため、{hint}して",
+      "compare": [
+        { "term": "拍子(4/4・3/4)", "diff": "1小節に何拍入るかの区切り。ワルツは3/4、行進・ロックは4/4" },
+        { "term": "ハーフタイム", "diff": "BPMは速いままドラムを半分の間隔にして重く聴かせる手法" }
+      ],
+      "related": ["fill-break", "loop-point", "arrangement-density"],
+      "defaults": { "p0": 132, "p1": 0, "p2": 0, "p3": 0 },
+      "controls": [
+        { "key": "p0", "type": "range", "label": "BPM", "min": 70, "max": 175, "unit": "" }
+      ]
+    },
+    {
+      "idx": 19, "id": "lowpass-highpass", "cat": 3,
+      "title": "ローパス・ハイパス", "en": "Lowpass / Highpass Filter", "kind": "DSP",
+      "summary": "高域を削ってこもらせるローパス、低域を切って軽くするハイパス",
+      "symptoms": ["水中やポーズ画面感を出したい", "音が埋もれる", "こもる・シャリシャリする"],
+      "before": "メニューを開いたらBGMを遠くにいる感じにして",
+      "after": "ポーズ画面やセリフの裏では{hint}",
+      "compare": [
+        { "term": "イコライザー(EQ)", "diff": "特定の周波数帯だけを増減する細かな音質調整" },
+        { "term": "リバーブ(残響)", "diff": "部屋の反響を足して空間の広さや奥行きを出す効果" }
+      ],
+      "related": ["ducking", "arrangement-density", "foley-vs-synth"],
+      "defaults": { "p0": 1, "p1": 42, "p2": 0, "p3": 0 },
+      "controls": [
+        { "key": "p0", "type": "choice", "label": "フィルタ", "options": ["バイパス", "ローパス", "ハイパス"] },
+        { "key": "p1", "type": "range", "label": "カットオフ周波数", "min": 15, "max": 95, "unit": "" }
+      ]
+    },
+    {
+      "idx": 20, "id": "fill-break", "cat": 3,
+      "title": "フィルイン・ブレイク", "en": "Fill-in & Break", "kind": "DSP",
+      "summary": "小節末尾の合図連打(フィルイン)と直前の一瞬無音(ブレイク)",
+      "symptoms": ["曲が単調", "ループがバレる", "サビ前の高揚感がない", "メリハリがない"],
+      "before": "サビに入る前をもっと盛り上げて",
+      "after": "展開の区切りを作るため、{hint}",
+      "compare": [
+        { "term": "フィルイン", "diff": "4小節や8小節の終わりにドラムやベースで入れる合図フレーズ" },
+        { "term": "ブレイク", "diff": "演奏を一瞬止めて無音や単音を作り、次の頭を際立たせる手法" }
+      ],
+      "related": ["pacing-beat", "bpm", "loop-point"],
+      "defaults": { "p0": 1, "p1": 0, "p2": 0, "p3": 0 },
+      "controls": [
+        { "key": "p0", "type": "choice", "label": "4小節目の展開", "options": ["ベタ打ち", "フィルイン", "ブレイク"] }
+      ]
+    },
+    {
+      "idx": 21, "id": "loop-point", "cat": 3,
+      "title": "イントロ付きループ", "en": "Intro + Seamless Loop", "kind": "DSP",
+      "summary": "最初のイントロを1回鳴らし以降はA〜B区間を切れ目なく繰り返す構造",
+      "symptoms": ["毎回最初から戻る", "繋ぎ目がブツッと切れる", "ゲームBGMが不自然"],
+      "before": "ゲーム用のループするBGMを作って",
+      "after": "プレイ中に途切れないよう、{hint}",
+      "compare": [
+        { "term": "ジングル", "diff": "勝利やアイテム獲得など数秒で完結するループしない短い曲" },
+        { "term": "フェードアウト", "diff": "末尾の音量を下げて終える処理。ループ曲には不向き" }
+      ],
+      "related": ["bpm", "fill-break", "arrangement-density"],
+      "defaults": { "p0": 1, "p1": 0, "p2": 0, "p3": 0 },
+      "controls": [
+        { "key": "p0", "type": "choice", "label": "ループ方式", "options": ["全体リピート", "A→Bシームレス"] }
+      ]
+    },
+    {
+      "idx": 22, "id": "major-minor", "cat": 3,
+      "title": "長調・短調", "en": "Major / Minor / Sus", "kind": "DSP",
+      "summary": "3度の音程で明暗・哀愁・浮遊感の感情土台を決める調性",
+      "symptoms": ["切ない感じが出ない", "不穏にしたい", "明るい以外の雰囲気を伝えたい"],
+      "before": "ちょっと切ないけど暗すぎない曲にして",
+      "after": "感情の土台を揃えるため、{hint}にして",
+      "compare": [
+        { "term": "転調", "diff": "曲の途中でキーの高さを変えて高揚感や場面変化を出す手法" },
+        { "term": "コード進行", "diff": "和音の並び方。同じ短調でも進行次第で悲壮にもお洒落にもなる" }
+      ],
+      "related": ["arrangement-density", "bpm", "lowpass-highpass"],
+      "defaults": { "p0": 1, "p1": 0, "p2": 0, "p3": 0 },
+      "controls": [
+        { "key": "p0", "type": "choice", "label": "調・響き", "options": ["メジャー(長調)", "マイナー(短調)", "サス(浮遊)"] }
+      ]
+    },
+    {
+      "idx": 23, "id": "arrangement-density", "cat": 3,
+      "title": "帯域分け・アレンジ密度", "en": "Arrangement & Band Separation", "kind": "DSP",
+      "summary": "低域ベース・中域コード・高域メロディで居場所を分ける編曲整理",
+      "symptoms": ["音がごちゃつく", "主旋律が埋もれる", "スカスカで安っぽい"],
+      "before": "もっと豪華だけど聞きやすいBGMにして",
+      "after": "主旋律が埋もれないよう、{hint}",
+      "compare": [
+        { "term": "ミキシング", "diff": "録音・合成した各パートの音量・左右定位・帯域を整える工程" },
+        { "term": "マスタリング", "diff": "完成した2ch全体の音圧や質感を最終調整する仕上げ工程" }
+      ],
+      "related": ["lowpass-highpass", "se-layering", "ducking"],
+      "defaults": { "p0": 1, "p1": 1, "p2": 1, "p3": 1 },
+      "controls": [
+        { "key": "p0", "type": "toggle", "label": "低域: ベース" },
+        { "key": "p1", "type": "toggle", "label": "中域: 和音パッド" },
+        { "key": "p2", "type": "toggle", "label": "高域: 主旋律" },
+        { "key": "p3", "type": "toggle", "label": "リズム: ドラム" }
+      ]
+    },
+    {
+      "idx": 24, "id": "adsr", "cat": 4,
+      "title": "アタック・リリース(ADSR)", "en": "ADSR Envelope", "kind": "DSP",
+      "summary": "音の立ち上がり(A)・減衰(D)・持続(S)・余韻(R)の時間設計",
+      "symptoms": ["音にキレがない", "ヌルッとする", "ブツッと切れる", "打撃感が弱い"],
+      "before": "ボタンの決定音をもっと気持ちよくして",
+      "after": "キレと余韻を両立するため、{hint}で作って",
+      "compare": [
+        { "term": "ボリューム(音量)", "diff": "全体の大きさ。音量を上げてもアタックが鈍いとキレは出ない" },
+        { "term": "トランジェント", "diff": "音が鳴り始めた最初の数ミリ秒の衝撃成分" }
+      ],
+      "related": ["pitch-bend", "se-layering", "hitstop"],
+      "defaults": { "p0": 4, "p1": 28, "p2": 45, "p3": 36 },
+      "controls": [
+        { "key": "p0", "type": "range", "label": "Attack (立ち上がり)", "min": 1, "max": 100, "unit": "" },
+        { "key": "p1", "type": "range", "label": "Decay (減衰)", "min": 5, "max": 100, "unit": "" },
+        { "key": "p2", "type": "range", "label": "Sustain (持続)", "min": 0, "max": 100, "unit": "%" },
+        { "key": "p3", "type": "range", "label": "Release (余韻)", "min": 5, "max": 100, "unit": "" }
+      ]
+    },
+    {
+      "idx": 25, "id": "pitch-bend", "cat": 4,
+      "title": "ピッチベンド", "en": "Pitch Bend / Sweep", "kind": "DSP",
+      "summary": "短い時間内で音程を上下に滑らせ決定・獲得・キャンセルを表す手法",
+      "symptoms": ["決定とキャンセルの差がない", "獲得感が弱い", "音にキレがない"],
+      "before": "アイテム取得音とエラー音を作って",
+      "after": "直感的に意味が伝わるよう、{hint}にして",
+      "compare": [
+        { "term": "アルペジオ", "diff": "ド・ミ・ソのように階段状に音程を切り替える表現" },
+        { "term": "ビブラート", "diff": "音程を小刻みに上下へ揺らす装飾" }
+      ],
+      "related": ["adsr", "pitch-variation", "game-juice"],
+      "defaults": { "p0": 380, "p1": 960, "p2": 1, "p3": 0 },
+      "controls": [
+        { "key": "p0", "type": "range", "label": "開始周波数", "min": 150, "max": 1400, "unit": "Hz" },
+        { "key": "p1", "type": "range", "label": "終了周波数", "min": 150, "max": 1400, "unit": "Hz" },
+        { "key": "p2", "type": "choice", "label": "カーブ", "options": ["直線", "指数(自然)"] }
+      ]
+    },
+    {
+      "idx": 26, "id": "se-layering", "cat": 4,
+      "title": "レイヤー重ね", "en": "SE Layering", "kind": "DSP",
+      "summary": "低音の芯・中域の質感・高域ノイズの衝撃を重ねて厚みを作る手法",
+      "symptoms": ["音がペラペラ", "チープに聞こえる", "迫力がない", "単調なビープ音になる"],
+      "before": "もっと重くて強い打撃の効果音にして",
+      "after": "単音のペラペラ感を消すため、{hint}にして",
+      "compare": [
+        { "term": "帯域分け(BGM)", "diff": "音楽で楽器同士のぶつかりを避ける配置。SEでも低・中・高の分担が有効" },
+        { "term": "ディストーション", "diff": "波形を歪ませて倍音と荒々しさを足す加工" }
+      ],
+      "related": ["adsr", "foley-vs-synth", "hitstop"],
+      "defaults": { "p0": 1, "p1": 1, "p2": 1, "p3": 0 },
+      "controls": [
+        { "key": "p0", "type": "toggle", "label": "1. 低音の芯 (パンチ)" },
+        { "key": "p1", "type": "toggle", "label": "2. 中域の質感 (ボディ)" },
+        { "key": "p2", "type": "toggle", "label": "3. 高域ノイズ (衝撃)" }
+      ]
+    },
+    {
+      "idx": 27, "id": "ducking", "cat": 4,
+      "title": "ダッキング", "en": "Ducking", "kind": "DSP",
+      "summary": "大事なSEやセリフが鳴る瞬間だけBGM音量を自動で一瞬下げる処理",
+      "symptoms": ["音が埋もれる", "SEを上げるとうるさい", "セリフが聞き取れない"],
+      "before": "大事な決定音がBGMに負けないようにして",
+      "after": "SEの音量を無理に上げず、{hint}",
+      "compare": [
+        { "term": "サイドチェイン", "diff": "別の音(キックや声)をトリガーに音量を自動圧縮する仕組み" },
+        { "term": "ローパスフィルタ", "diff": "音量ではなく高域だけを削って背景へ引く手法" }
+      ],
+      "related": ["lowpass-highpass", "arrangement-density", "se-layering"],
+      "defaults": { "p0": 68, "p1": 0, "p2": 0, "p3": 0 },
+      "controls": [
+        { "key": "p0", "type": "range", "label": "BGMを下げる深さ", "min": 0, "max": 90, "unit": "%" }
+      ]
+    },
+    {
+      "idx": 28, "id": "pitch-variation", "cat": 4,
+      "title": "ピッチランダム化", "en": "Pitch Randomization", "kind": "DSP",
+      "summary": "連打や足音の再生ごとに微細な音程ゆらぎを掛けて機械臭さを消す技",
+      "symptoms": ["連打がマシンガンみたい", "足音が耳につく", "機械的で不自然"],
+      "before": "足音や連射SEがうるさく聞こえるのを直して",
+      "after": "同じ音の連打による不自然さを消すため、{hint}",
+      "compare": [
+        { "term": "ラウンドロビン", "diff": "別録りの3〜5パターンのSEを順番・ランダムに切り替える手法" },
+        { "term": "ピッチベンド", "diff": "1つの音の中で時間経過とともに音程を動かす手法" }
+      ],
+      "related": ["pitch-bend", "foley-vs-synth", "game-juice"],
+      "defaults": { "p0": 7, "p1": 0, "p2": 0, "p3": 0 },
+      "controls": [
+        { "key": "p0", "type": "range", "label": "ピッチゆらぎ幅", "min": 0, "max": 15, "unit": "%" }
+      ]
+    },
+    {
+      "idx": 29, "id": "foley-vs-synth", "cat": 4,
+      "title": "フォーリー vs シンセSE", "en": "Foley vs Synth SE", "kind": "DSP",
+      "summary": "紙・木・布など生活素材の生音系(フォーリー)か、電子記号系(シンセ)かの軸",
+      "symptoms": ["世界観に対して音が浮く", "リアル寄りかゲーム寄りか伝えられない"],
+      "before": "この作品に合う効果音を作って",
+      "after": "世界観と音の手触りを揃えるため、{hint}",
+      "compare": [
+        { "term": "フォーリー", "diff": "足音・衣擦れ・木の打音など実物の質感から作る効果音" },
+        { "term": "アンビエンス", "diff": "風・街のざわめきなど場面に敷き続ける環境音" }
+      ],
+      "related": ["se-layering", "adsr", "pitch-variation"],
+      "defaults": { "p0": 1, "p1": 0, "p2": 0, "p3": 0 },
+      "controls": [
+        { "key": "p0", "type": "choice", "label": "音の系統", "options": ["シンセ系(記号)", "フォーリー寄り(質感)"] }
+      ]
+    },
+    {
+      "idx": 30, "id": "git-merge", "cat": 5,
+      "title": "マージ・ブランチ・コンフリクト", "en": "Branch / Merge / Conflict", "kind": "SVG",
+      "summary": "安全な作業枝(ブランチ)を作り変更を合流(マージ)する。同箇所の衝突がコンフリクト",
+      "symptoms": ["マージしての意味が分からない", "本番を壊さず試したい", "変更が衝突した"],
+      "before": "さっき直した分を元のコードに混ぜておいて",
+      "after": "本番を安全に保つため、{hint}",
+      "compare": [
+        { "term": "プルリクエスト(PR)", "diff": "マージする前に変更差分を確認・相談するための依頼画面" },
+        { "term": "リベース(Rebase)", "diff": "枝の分岐元を最新へ付け替えて履歴を一直線に整える操作" }
+      ],
+      "related": ["refactoring", "regression", "smoke-test"],
+      "defaults": { "p0": 3, "p1": 0, "p2": 0, "p3": 0 },
+      "controls": [
+        { "key": "p0", "type": "choice", "label": "手順", "options": ["1.main", "2.ブランチ", "3.分岐進行", "4.マージ", "5.コンフリクト"] }
+      ]
+    },
+    {
+      "idx": 31, "id": "bool-and-types", "cat": 5,
+      "title": "型・bool(真偽値)", "en": "Bool & Strict Types", "kind": "SVG",
+      "summary": "自由文(string)ではなく2択の真偽(bool)や限定選択肢(enum)で曖昧さを消す指定",
+      "symptoms": ["AIの返事やデータが揺れる", "boolで答えての意味が分からない", "表記ゆれで壊れる"],
+      "before": "公開済みかどうかと状態をデータで管理して",
+      "after": "表記ゆれや判定ミスを防ぐため、{hint}",
+      "compare": [
+        { "term": "null / undefined", "diff": "値が入っていない未設定状態。false(明確にいいえ)とは別物" },
+        { "term": "enum(列挙型)", "diff": "Draft / Preview / Live のように取りうる値を固定する型" }
+      ],
+      "related": ["state-machine", "boundary-value", "edge-case"],
+      "defaults": { "p0": 1, "p1": 0, "p2": 0, "p3": 0 },
+      "controls": [
+        { "key": "p0", "type": "choice", "label": "データ型", "options": ["string(自由文)", "bool(2択)", "enum(限定)"] }
+      ]
+    },
+    {
+      "idx": 32, "id": "state-machine", "cat": 5,
+      "title": "状態遷移(ステートマシン)", "en": "State Machine", "kind": "SVG",
+      "summary": "複数のboolフラグをやめ、取りうる状態と移動矢印を1組にまとめる設計",
+      "symptoms": ["フラグが増えて謎バグが出る", "読込中なのにエラーも出る", "勝手に壊れた"],
+      "before": "読み込みとエラーの表示がおかしくなるバグを直して",
+      "after": "矛盾した表示が起きないよう、{hint}",
+      "compare": [
+        { "term": "フラグ管理", "diff": "isLoading・isErrorを別々に持つ方式。増えるほど矛盾が起きやすい" },
+        { "term": "イベント駆動", "diff": "クリックや完了通知をトリガーに次の状態へ進める考え方" }
+      ],
+      "related": ["bool-and-types", "feedback-states", "refactoring"],
+      "defaults": { "p0": 1, "p1": 1, "p2": 1, "p3": 0 },
+      "controls": [
+        { "key": "p0", "type": "choice", "label": "管理方式", "options": ["boolフラグ(矛盾可)", "ステートマシン"] },
+        { "key": "p1", "type": "choice", "label": "フラグA / 状態", "options": ["0 / Idle", "1 / Loading", "2 / Ready", "3 / Error"] },
+        { "key": "p2", "type": "toggle", "label": "フラグB (isError)" }
+      ]
+    },
+    {
+      "idx": 33, "id": "refactoring", "cat": 5,
+      "title": "リファクタリング", "en": "Refactoring", "kind": "SVG",
+      "summary": "外から見た動作を一切変えずに内部のコード構造だけを読みやすく整理する作業",
+      "symptoms": ["整理を頼んだら仕様まで変わった", "勝手に壊れた", "変更が怖い"],
+      "before": "コードがぐちゃぐちゃだから綺麗にして",
+      "after": "機能変更を混ぜずに安全に整理するため、{hint}",
+      "compare": [
+        { "term": "リライト(書き直し)", "diff": "設計や技術ごと一から作り直す作業。仕様変化のリスクが大きい" },
+        { "term": "機能追加", "diff": "リファクタリングと別コミットに分けると問題切り分けが速い" }
+      ],
+      "related": ["regression", "git-merge", "state-machine"],
+      "defaults": { "p0": 1, "p1": 0, "p2": 0, "p3": 0 },
+      "controls": [
+        { "key": "p0", "type": "choice", "label": "内部構造", "options": ["整理前(巨大関数)", "リファクタ後(分離)"] }
+      ]
+    },
+    {
+      "idx": 34, "id": "async-sync", "cat": 5,
+      "title": "非同期・ローディング", "en": "Async vs Sync", "kind": "SIM",
+      "summary": "通信や重い計算を裏へ逃がし、待ち時間中も画面操作を止めない仕組み",
+      "symptoms": ["読み込み中にフリーズする", "反応が鈍い", "画面が固まる"],
+      "before": "データを取るときに画面が止まらないようにして",
+      "after": "操作感を保ったまま結果を受け取るため、{hint}",
+      "compare": [
+        { "term": "同期処理", "diff": "前の処理が終わるまで次へ進まない。重い処理を画面側でやると固まる" },
+        { "term": "デバウンス", "diff": "文字入力の連打ごとに通信せず、入力が止まってから1回だけ送る間引き" }
+      ],
+      "related": ["skeleton-loading", "feedback-states", "cache"],
+      "defaults": { "p0": 1, "p1": 0, "p2": 0, "p3": 0 },
+      "anim": { "duration": 2000, "button": "重い処理を実行" },
+      "controls": [
+        { "key": "p0", "type": "choice", "label": "実行方式", "options": ["同期(画面停止)", "非同期(操作継続)"] }
+      ]
+    },
+    {
+      "idx": 35, "id": "cache", "cat": 5,
+      "title": "キャッシュ", "en": "Cache & Invalidation", "kind": "SVG",
+      "summary": "一度取得したデータを手元へ一時保存して高速化。更新時は古い残りの無効化が必要",
+      "symptoms": ["直したのに古い画面が出る", "毎回読み込みが遅い", "変更が反映されない"],
+      "before": "更新したのにサイトに古い画像が出続けるのを直して",
+      "after": "速度と最新表示を両立するため、{hint}",
+      "compare": [
+        { "term": "キャッシュ無効化(パージ)", "diff": "古い一時保存を捨てて最新版を取り直させる操作" },
+        { "term": "メモ化", "diff": "同じ引数の計算結果をメモリに覚えて再利用するプログラム内のキャッシュ" }
+      ],
+      "related": ["async-sync", "mock-stub", "repro-expected-actual"],
+      "defaults": { "p0": 1, "p1": 1, "p2": 0, "p3": 0 },
+      "controls": [
+        { "key": "p0", "type": "toggle", "label": "キャッシュを使う" },
+        { "key": "p1", "type": "choice", "label": "サーバー版", "options": ["原本 v1", "更新後 v2"] },
+        { "key": "p2", "type": "choice", "label": "キャッシュ内", "options": ["古い v1 残存", "無効化→v2取得"] }
+      ]
+    },
+    {
+      "idx": 36, "id": "boundary-value", "cat": 6,
+      "title": "境界値", "en": "Boundary Value", "kind": "SVG",
+      "summary": "許可範囲のちょうど端(0・1・上限・上限+1)で起きる1ズレバグを突く検査",
+      "symptoms": ["0個や上限ちょうどで壊れる", "普通は動くのに端で落ちる", "勝手に壊れた"],
+      "before": "入力チェックのテストを書いておいて",
+      "after": "不等号の1ズレを見逃さないよう、{hint}",
+      "compare": [
+        { "term": "同値分割", "diff": "同じ挙動をする代表値(例: 50)を1つ選ぶ考え方。境界値と組で使う" },
+        { "term": "エッジケース", "diff": "空文字・超長文・連打など極端な状況全般" }
+      ],
+      "related": ["edge-case", "regression", "bool-and-types"],
+      "defaults": { "p0": 99, "p1": 1, "p2": 0, "p3": 0 },
+      "controls": [
+        { "key": "p0", "type": "range", "label": "入力値 x", "min": -1, "max": 101, "unit": "" },
+        { "key": "p1", "type": "choice", "label": "実装", "options": ["正常 (1<=x<=99)", "バグ (1<x<99)"] }
+      ]
+    },
+    {
+      "idx": 37, "id": "regression", "cat": 6,
+      "title": "リグレッション(デグレ)", "en": "Regression Testing", "kind": "SVG",
+      "summary": "新機能や修正の副作用で昨日まで動いていた既存機能が壊れる現象と防止検査",
+      "symptoms": ["勝手に壊れた", "別の場所が動かなくなった", "直すたびに別バグが出る"],
+      "before": "他の機能に影響がないか確認して",
+      "after": "既存機能の先祖返りを防ぐため、{hint}",
+      "compare": [
+        { "term": "スモークテスト", "diff": "全件ではなく主要導線だけ最速で生死確認する軽い検査" },
+        { "term": "リファクタリング", "diff": "回帰テストが緑のまま構造を整理する作業" }
+      ],
+      "related": ["smoke-test", "refactoring", "boundary-value"],
+      "defaults": { "p0": 1, "p1": 1, "p2": 0, "p3": 0 },
+      "controls": [
+        { "key": "p0", "type": "toggle", "label": "新機能 D を追加" },
+        { "key": "p1", "type": "toggle", "label": "回帰テストを実行" }
+      ]
+    },
+    {
+      "idx": 38, "id": "edge-case", "cat": 6,
+      "title": "エッジケース", "en": "Edge Case", "kind": "SVG",
+      "summary": "空文字・改行なし超長文・絵文字・連打など想定外になりやすい極端な入力",
+      "symptoms": ["長い名前で崩れる", "絵文字で文字化け", "空のとき壊れる", "勝手に壊れた"],
+      "before": "変な入力が来ても壊れないようにして",
+      "after": "実運用で画面が崩れないよう、{hint}",
+      "compare": [
+        { "term": "ハッピーパス(正常系)", "diff": "想定どおりの綺麗な入力で進む標準ルート" },
+        { "term": "境界値", "diff": "数値範囲の端(0や上限)に特化した検査観点" }
+      ],
+      "related": ["boundary-value", "empty-state", "repro-expected-actual"],
+      "defaults": { "p0": 2, "p1": 1, "p2": 0, "p3": 0 },
+      "controls": [
+        { "key": "p0", "type": "choice", "label": "注入データ", "options": ["通常", "空文字", "超長文", "絵文字"] },
+        { "key": "p1", "type": "choice", "label": "カード実装", "options": ["未対策", "対策済み"] }
+      ]
+    },
+    {
+      "idx": 39, "id": "repro-expected-actual", "cat": 6,
+      "title": "再現手順・期待値と実測値", "en": "Repro / Expected / Actual", "kind": "SVG",
+      "summary": "「動かない」ではなく手順・期待・実測・環境の4点で原因を1点に絞る報告型",
+      "symptoms": ["AIの修正が的外れ", "バグがうまく伝わらない", "勝手に壊れた"],
+      "before": "保存がうまく動かないから直して",
+      "after": "推測での誤修正を防ぐため、{hint}",
+      "compare": [
+        { "term": "スタックトレース", "diff": "エラー発生時にどのファイルの何行目を通ったかを示す記録" },
+        { "term": "最小再現", "diff": "余計な操作を削って最も短い手順で不具合を起こす形" }
+      ],
+      "related": ["edge-case", "mock-stub", "smoke-test"],
+      "defaults": { "p0": 1, "p1": 1, "p2": 1, "p3": 1 },
+      "controls": [
+        { "key": "p0", "type": "toggle", "label": "再現手順 (1→2→3)" },
+        { "key": "p1", "type": "toggle", "label": "期待値 (こうなるはず)" },
+        { "key": "p2", "type": "toggle", "label": "実測値 (実際に起きたこと)" },
+        { "key": "p3", "type": "toggle", "label": "環境 (ブラウザ・画面幅)" }
+      ]
+    },
+    {
+      "idx": 40, "id": "mock-stub", "cat": 6,
+      "title": "モック・スタブ", "en": "Mock & Stub", "kind": "SVG",
+      "summary": "課金や本番APIを叩かず成功・500エラー・遅延を自在に再現する仮の身代わり",
+      "symptoms": ["エラー画面を確認できない", "本番サーバーを触りたくない", "テストが通信に左右される"],
+      "before": "通信エラーが出たときの画面を確認したい",
+      "after": "本番を触らず安全に異常系を確認するため、{hint}",
+      "compare": [
+        { "term": "E2Eテスト", "diff": "実物同士を端から端まで繋いで通す最終テスト" },
+        { "term": "スタブ vs モック", "diff": "スタブは固定応答を返す役、モックは呼ばれた回数や引数まで検証する役" }
+      ],
+      "related": ["smoke-test", "async-sync", "regression"],
+      "defaults": { "p0": 2, "p1": 0, "p2": 0, "p3": 0 },
+      "controls": [
+        { "key": "p0", "type": "choice", "label": "接続先", "options": ["本番API", "モック200", "モック500", "モック遅延"] }
+      ]
+    },
+    {
+      "idx": 41, "id": "smoke-test", "cat": 6,
+      "title": "スモークテスト", "en": "Smoke Test", "kind": "SVG",
+      "summary": "詳細検査の前に起動・表示・主操作の最小点だけで致命傷を最速検知する検査",
+      "symptoms": ["テストが重くて回せない", "まず動くか最速で知りたい", "公開前に最低限見たい"],
+      "before": "ざっくり全体が壊れてないか確認して",
+      "after": "変更のたびにすぐ回せるよう、{hint}",
+      "compare": [
+        { "term": "ユニットテスト", "diff": "関数1つ単位の計算や境界値を高速に検査するテスト" },
+        { "term": "リグレッションテスト", "diff": "過去バグや既存機能全体を網羅的に確認するテスト" }
+      ],
+      "related": ["regression", "mock-stub", "boundary-value"],
+      "defaults": { "p0": 0, "p1": 0, "p2": 0, "p3": 0 },
+      "controls": [
+        { "key": "p0", "type": "choice", "label": "検査の広さ", "options": ["スモーク(4秒)", "結合(45秒)", "フルE2E(6分)"] }
+      ]
+    },
+    {
+      "idx": 42, "id": "hitstop", "cat": 7,
+      "title": "ヒットストップ", "en": "Hitstop / Impact Freeze", "kind": "SIM",
+      "summary": "攻撃が当たった瞬間に数フレームだけ動きを止めて打撃の重みを伝える演出",
+      "symptoms": ["攻撃がペラペラ", "当たった手応えがない", "反応が薄い", "爽快感がない"],
+      "before": "敵を攻撃したときの手応えをもっと良くして",
+      "after": "当たった瞬間の重みを出すため、{hint}",
+      "compare": [
+        { "term": "スローモーション", "diff": "時間全体の進み方を滑らかに遅くする演出。止めるのとは別" },
+        { "term": "ノックバック", "diff": "ヒット後に相手を後ろへ吹き飛ばす物理移動" }
+      ],
+      "related": ["game-juice", "se-layering", "pacing-beat"],
+      "defaults": { "p0": 4, "p1": 1, "p2": 0, "p3": 0 },
+      "anim": { "duration": 680, "button": "攻撃して試す" },
+      "controls": [
+        { "key": "p0", "type": "range", "label": "静止フレーム", "min": 0, "max": 8, "unit": "F" },
+        { "key": "p1", "type": "toggle", "label": "ヒット時微振動" }
+      ]
+    },
+    {
+      "idx": 43, "id": "coyote-time", "cat": 7,
+      "title": "コヨーテタイム", "en": "Coyote Time", "kind": "SIM",
+      "summary": "足場から一歩踏み出した直後の数フレームでもジャンプを受け付ける操作救済",
+      "symptoms": ["押したのに崖から落ちた", "操作がシビアで理不尽", "反応が鈍い"],
+      "before": "ジャンプ操作をもっと遊びやすく優しくして",
+      "after": "崖際の理不尽な落下を防ぐため、{hint}",
+      "compare": [
+        { "term": "先行入力(入力バッファ)", "diff": "着地する少し前の早押しを記憶して救済する仕組み。コヨーテタイムと組で使う" },
+        { "term": "当たり判定縮小", "diff": "トゲや敵の判定を見た目より小さくして理不尽を減らす調整" }
+      ],
+      "related": ["input-buffer", "telegraphing", "hitstop"],
+      "defaults": { "p0": 120, "p1": 85, "p2": 0, "p3": 0 },
+      "anim": { "duration": 900, "button": "崖から跳ぶ" },
+      "controls": [
+        { "key": "p0", "type": "range", "label": "猶予時間", "min": 0, "max": 180, "unit": "ms" },
+        { "key": "p1", "type": "range", "label": "崖後の押下遅れ", "min": 0, "max": 160, "unit": "ms" }
+      ]
+    },
+    {
+      "idx": 44, "id": "input-buffer", "cat": 7,
+      "title": "先行入力(入力バッファ)", "en": "Input Buffer", "kind": "SIM",
+      "summary": "着地や硬直終了の直前に押した入力を保持し、可能になった瞬間すぐ発動する仕組み",
+      "symptoms": ["押したのに無反応", "反応が鈍い", "モッサリする", "連打が通りにくい"],
+      "before": "ボタンの反応が悪くてモッサリするのを直して",
+      "after": "早押しの取りこぼしをなくすため、{hint}",
+      "compare": [
+        { "term": "コヨーテタイム", "diff": "足場を離れた後の遅押しを救済する仕組み" },
+        { "term": "キャンセル", "diff": "硬直が終わるのを待たず途中から次アクションへ割り込む設計" }
+      ],
+      "related": ["coyote-time", "feedback-states", "hitstop"],
+      "defaults": { "p0": 120, "p1": 75, "p2": 0, "p3": 0 },
+      "anim": { "duration": 900, "button": "着地ジャンプ試す" },
+      "controls": [
+        { "key": "p0", "type": "range", "label": "バッファ時間", "min": 0, "max": 180, "unit": "ms" },
+        { "key": "p1", "type": "range", "label": "着地前の早押し", "min": 0, "max": 150, "unit": "ms" }
+      ]
+    },
+    {
+      "idx": 45, "id": "easing", "cat": 7,
+      "title": "イージング", "en": "Easing Curves", "kind": "SIM",
+      "summary": "等速ではなく加速・減速・行き過ぎ戻り(Overshoot)で動きに心地よい緩急を付ける曲線",
+      "symptoms": ["動きがロボットみたい", "無機質で固い", "UIの動きが気持ちよくない"],
+      "before": "メニューやキャラの動きを滑らかに気持ちよくして",
+      "after": "無機質な印象を消すため、{hint}",
+      "compare": [
+        { "term": "Lerp(線形補間)", "diff": "2点間を割合で結ぶ基本計算。毎フレーム残りの一定割合を詰めると減速カーブになる" },
+        { "term": "スプリング物理", "diff": "時間指定ではなくバネ定数と減衰で揺れながら収束させる動き" }
+      ],
+      "related": ["game-juice", "feedback-states", "pacing-beat"],
+      "defaults": { "p0": 1, "p1": 0, "p2": 0, "p3": 0 },
+      "anim": { "duration": 1000, "button": "並走を再生" },
+      "controls": [
+        { "key": "p0", "type": "choice", "label": "注目カーブ", "options": ["Linear", "Ease-Out", "In-Out", "Overshoot", "Bounce"] }
+      ]
+    },
+    {
+      "idx": 46, "id": "telegraphing", "cat": 7,
+      "title": "予兆・テレグラフ", "en": "Telegraphing", "kind": "SIM",
+      "summary": "敵攻撃やギミック発動の直前に溜め姿勢・範囲表示・音で予告して納得感を作る設計",
+      "symptoms": ["突然ダメージを受けて理不尽", "避けられない", "次に何が起きるか分からない"],
+      "before": "ボス戦が理不尽に感じるのを調整して",
+      "after": "初見でも見てから避けられる納得感を作るため、{hint}",
+      "compare": [
+        { "term": "無敵時間(i-frame)", "diff": "回避や被弾直後にダメージを受けない猶予フレーム" },
+        { "term": "ヒットボックス", "diff": "攻撃が実際に当たる空間範囲。予告範囲と一致させると納得感が高い" }
+      ],
+      "related": ["hitstop", "coyote-time", "pacing-beat"],
+      "defaults": { "p0": 520, "p1": 0, "p2": 0, "p3": 0 },
+      "anim": { "duration": 1000, "button": "敵攻撃を再生" },
+      "controls": [
+        { "key": "p0", "type": "range", "label": "予兆(溜め)時間", "min": 0, "max": 700, "unit": "ms" }
+      ]
+    },
+    {
+      "idx": 47, "id": "game-juice", "cat": 7,
+      "title": "ゲームフィール・ジュース", "en": "Game Feel / Juice", "kind": "SIM",
+      "summary": "ルールを変えずに伸縮・パーティクル・振動・音を重ねて操作の快感を底上げする演出",
+      "symptoms": ["遊んでいて味気ない", "地味", "反応が薄い", "気持ちよさが足りない"],
+      "before": "遊んでいてもっと気持ちよくなるようにして",
+      "after": "操作への返答を豊かにするため、{hint}",
+      "compare": [
+        { "term": "コアループ", "diff": "ルールそのものの面白さ。ジュースは芯のあるループに乗せると最も映える" },
+        { "term": "過剰演出", "diff": "画面を揺らしすぎたり閃光が強すぎると視認性を損ねるため引き算も重要" }
+      ],
+      "related": ["hitstop", "easing", "pitch-bend"],
+      "defaults": { "p0": 1, "p1": 1, "p2": 1, "p3": 1 },
+      "anim": { "duration": 600, "button": "叩いて体感" },
+      "controls": [
+        { "key": "p0", "type": "toggle", "label": "伸縮 (Squash)" },
+        { "key": "p1", "type": "toggle", "label": "パーティクル" },
+        { "key": "p2", "type": "toggle", "label": "画面微振動" },
+        { "key": "p3", "type": "toggle", "label": "ヒット閃光" }
+      ]
+    },
+    {
+      "idx": 48, "id": "signifier", "cat": 8,
+      "title": "アフォーダンス・シグニファイア", "en": "Affordance & Signifier", "kind": "SVG",
+      "summary": "「押せる・動かせる」ことを塗り・枠・影・矢印など見た目の手がかりで伝える設計",
+      "symptoms": ["押せるか迷う", "ボタンに気づかれない", "ただの文字に見える"],
+      "before": "ボタンが押せるって分かりやすくして",
+      "after": "初見でも操作対象が迷わず分かるよう、{hint}",
+      "compare": [
+        { "term": "アフォーダンス", "diff": "対象が本来持つ「押せる・回せる」という行為の可能性そのもの" },
+        { "term": "シグニファイア", "diff": "その可能性を人へ伝える矢印・影・色などの知覚できる目印" }
+      ],
+      "related": ["button-hierarchy", "feedback-states", "whitespace-proximity"],
+      "defaults": { "p0": 2, "p1": 0, "p2": 0, "p3": 0 },
+      "controls": [
+        { "key": "p0", "type": "choice", "label": "手がかりの強さ", "options": ["素のテキスト", "薄い枠", "明確なシグニファイア"] }
+      ]
+    },
+    {
+      "idx": 49, "id": "feedback-states", "cat": 8,
+      "title": "フィードバック状態", "en": "Interaction Feedback", "kind": "SIM",
+      "summary": "押下・処理中・完了までを途切れず見せて不安と連打を防ぐUI反応設計",
+      "symptoms": ["押せたか不安", "思わず連打してしまう", "反応が鈍い"],
+      "before": "送信ボタンの反応を親切にして",
+      "after": "二重送信や不安を防ぐため、{hint}",
+      "compare": [
+        { "term": "トースト通知", "diff": "画面端へ一時表示する完了メッセージ。ボタン自身の状態変化と併用すると親切" },
+        { "term": "ステートマシン", "diff": "Idle→Loading→Doneを安全に管理するプログラム側の設計" }
+      ],
+      "related": ["state-machine", "notification-patterns", "async-sync"],
+      "defaults": { "p0": 1, "p1": 0, "p2": 0, "p3": 0 },
+      "anim": { "duration": 900, "button": "保存を押す" },
+      "controls": [
+        { "key": "p0", "type": "choice", "label": "反応設計", "options": ["無反応", "4状態フィードバック"] }
+      ]
+    },
+    {
+      "idx": 50, "id": "skeleton-loading", "cat": 8,
+      "title": "スケルトンスクリーン", "en": "Skeleton Screen", "kind": "SIM",
+      "summary": "読込中に表示後の形と同じ灰色の骨格を先に出し、体感待ちとレイアウトズレ(CLS)を消す手法",
+      "symptoms": ["真っ白で遅く感じる", "読み込み後にガクッとズレる", "誤タップする"],
+      "before": "読み込み画面をちゃんとした見た目にして",
+      "after": "体感速度を上げレイアウト崩れを防ぐため、{hint}",
+      "compare": [
+        { "term": "スピナー", "diff": "小さなボタン内など狭い箇所の待ち表示向き。全画面だと遅く感じやすい" },
+        { "term": "楽観的UI", "diff": "通信完了を待たず先に成功表示し、失敗時だけ戻す高速体感手法" }
+      ],
+      "related": ["async-sync", "empty-state", "feedback-states"],
+      "defaults": { "p0": 1, "p1": 0, "p2": 0, "p3": 0 },
+      "anim": { "duration": 950, "button": "読み込みを再生" },
+      "controls": [
+        { "key": "p0", "type": "choice", "label": "待機表示", "options": ["空白+スピナー", "スケルトン(ズレ0)"] }
+      ]
+    },
+    {
+      "idx": 51, "id": "empty-state", "cat": 8,
+      "title": "エンプティステート", "en": "Empty State", "kind": "SVG",
+      "summary": "検索0件や初回起動で真っ白にせず、状況説明と次行動ボタンを置く画面設計",
+      "symptoms": ["0件で真っ白になり壊れたと思われる", "初回に何をすればいいか分からない"],
+      "before": "データがないときの表示も用意して",
+      "after": "利用者が戸惑わないよう、{hint}",
+      "compare": [
+        { "term": "エラー状態", "diff": "通信失敗など異常時の表示。再試行ボタンと原因案内を出す" },
+        { "term": "オンボーディング", "diff": "初回登録から最初の成功体験までを導く導入設計" }
+      ],
+      "related": ["edge-case", "skeleton-loading", "signifier"],
+      "defaults": { "p0": 1, "p1": 0, "p2": 0, "p3": 0 },
+      "controls": [
+        { "key": "p0", "type": "choice", "label": "0件時の表示", "options": ["ただの空白", "案内+行動ボタン"] }
+      ]
+    },
+    {
+      "idx": 52, "id": "notification-patterns", "cat": 8,
+      "title": "トースト・インライン・モーダル", "en": "Toast / Inline / Modal", "kind": "SVG",
+      "summary": "作業を止めないトースト、項目直下のインライン、確認強制のモーダルの使い分け",
+      "symptoms": ["毎回OKを押させられて邪魔", "危険な削除が軽すぎる", "エラー箇所が分からない"],
+      "before": "通知や警告の出し方をちょうどよくして",
+      "after": "操作の邪魔度と安全性を両立するため、{hint}",
+      "compare": [
+        { "term": "Undo(取り消し)", "diff": "削除確認モーダルを減らし、即時実行＋数秒間の元に戻すトーストで快適に保つ手法" },
+        { "term": "ツールチップ", "diff": "ホバーやフォーカス時だけ短い補足を出す非強制ヒント" }
+      ],
+      "related": ["button-hierarchy", "feedback-states", "empty-state"],
+      "defaults": { "p0": 0, "p1": 0, "p2": 0, "p3": 0 },
+      "controls": [
+        { "key": "p0", "type": "choice", "label": "起きた出来事", "options": ["保存完了", "入力ミス", "全削除"] },
+        { "key": "p1", "type": "choice", "label": "通知方式", "options": ["トースト", "インライン", "モーダル"] }
+      ]
+    },
+    {
+      "idx": 53, "id": "button-hierarchy", "cat": 8,
+      "title": "情報階層(プライマリ/破壊的操作)", "en": "Action Hierarchy", "kind": "SVG",
+      "summary": "主行動1つをプライマリ、補助をセカンダリ、危険な削除は色と位置を離す優先設計",
+      "symptoms": ["押せるか迷う", "どれを押すべきか分からない", "うっかり削除しそう", "メリハリがない"],
+      "before": "ダイアログのボタン配置を整えて",
+      "after": "誤操作を防ぎ主行動を明確にするため、{hint}",
+      "compare": [
+        { "term": "CTA(行動喚起)", "diff": "画面内で最も押してほしい1つの主ボタン" },
+        { "term": "ガードレール", "diff": "削除ボタンの隔離や確認入力など致命ミスを防ぐ仕組み" }
+      ],
+      "related": ["signifier", "color-ratio", "notification-patterns"],
+      "defaults": { "p0": 1, "p1": 0, "p2": 0, "p3": 0 },
+      "controls": [
+        { "key": "p0", "type": "choice", "label": "ボタン設計", "options": ["全部同じ強さ", "階層＋破壊操作分離"] }
+      ]
+    }
+  ]
+}

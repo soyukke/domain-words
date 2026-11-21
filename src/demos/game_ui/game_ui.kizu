@@ -1,0 +1,654 @@
+// Categories 7 & 8: Game Design (IDs 42..47) and UI/UX (IDs 48..53).
+import domain_words::demos::params;
+import domain_words::svg;
+import std::math;
+import std::mem;
+import std::string;
+
+pub fn render(
+    allocator: Allocator,
+    word_id: i32,
+    p: params::Params,
+    out_svg: &var string::String,
+    out_readout: &var string::String,
+    out_hint: &var string::String,
+) -> mem::Error!void {
+    if word_id == 42 { try demo_hitstop(allocator, p, out_svg, out_readout, out_hint); }
+    else if word_id == 43 { try demo_coyote(allocator, p, out_svg, out_readout, out_hint); }
+    else if word_id == 44 { try demo_input_buffer(allocator, p, out_svg, out_readout, out_hint); }
+    else if word_id == 45 { try demo_easing(allocator, p, out_svg, out_readout, out_hint); }
+    else if word_id == 46 { try demo_telegraph(allocator, p, out_svg, out_readout, out_hint); }
+    else if word_id == 47 { try demo_game_juice(allocator, p, out_svg, out_readout, out_hint); }
+    else if word_id == 48 { try demo_signifier(allocator, p, out_svg, out_readout, out_hint); }
+    else if word_id == 49 { try demo_feedback_states(allocator, p, out_svg, out_readout, out_hint); }
+    else if word_id == 50 { try demo_skeleton(allocator, p, out_svg, out_readout, out_hint); }
+    else if word_id == 51 { try demo_empty_state(allocator, p, out_svg, out_readout, out_hint); }
+    else if word_id == 52 { try demo_notifications(allocator, p, out_svg, out_readout, out_hint); }
+    else { try demo_button_hierarchy(allocator, p, out_svg, out_readout, out_hint); }
+    return;
+}
+
+// 42: Hitstop (p0=freeze_frames 0..8, p1=shake 0/1, tick=ms since attack 0..700)
+fn demo_hitstop(allocator: Allocator, p: params::Params, out: &var string::String, readout: &var string::String, hint: &var string::String) -> mem::Error!void {
+    let stop_f = svg::clamp_i32(p.p0, 0, 8);
+    let shake_on = p.p1 != 0;
+    let stop_ms = stop_f * 26; // slightly slowed so eye clearly perceives 0F vs 5F
+    let t = svg::clamp_i32(p.tick, 0, 700);
+    let impact_at: i32 = 140;
+    let in_stop = t >= impact_at and t < impact_at + stop_ms;
+    let after = t >= impact_at + stop_ms;
+
+    var sx = 0.0;
+    var sy = 0.0;
+    if in_stop and shake_on {
+        sx = if ((t / 20) % 2) == 0 { 5.0 } else { -5.0 };
+        sy = if ((t / 25) % 2) == 0 { -3.0 } else { 3.0 };
+    }
+
+    // Sword swing angle & target knockback
+    var swing = 0.0;
+    var target_x = 312.0;
+    if t == 0 {
+        swing = 0.0;
+    } else if t < impact_at {
+        swing = cast<f64>(t) / cast<f64>(impact_at);
+    } else if in_stop {
+        swing = 1.0;
+    } else {
+        let u = svg::clamp_f64(cast<f64>(t - impact_at - stop_ms) / 280.0, 0.0, 1.0);
+        swing = 1.0 + u * 0.45;
+        target_x = 312.0 + (1.0 - (1.0 - u) * (1.0 - u)) * 56.0;
+    }
+
+    try svg::begin(allocator, out, 480, 270);
+    try svg::rect(allocator, out, 0.0, 0.0, 480.0, 270.0, 8.0, "var(--sheet)", "var(--rule)", 1.0);
+    try out.append_bytes(allocator, "<g transform='translate(");
+    try svg::append_f1(allocator, out, sx);
+    try out.append_byte(allocator, 32);
+    try svg::append_f1(allocator, out, sy);
+    try out.append_bytes(allocator, ")'>");
+
+    // Floor
+    try svg::line(allocator, out, 28.0, 212.0, 452.0, 212.0, "var(--rule)", 2.0, "");
+
+    // Attacker
+    try svg::rect(allocator, out, 146.0, 134.0, 44.0, 78.0, 8.0, "var(--ink)", "", 0.0);
+    try svg::circle(allocator, out, 168.0, 114.0, 18.0, "var(--ink)", "", 0.0);
+
+    // Sword slash arc
+    let ang = -1.2 + swing * 2.1;
+    let tip_x = 186.0 + math::cos<f64>(ang) * 116.0;
+    let tip_y = 152.0 + math::sin<f64>(ang) * 102.0;
+    try svg::line(allocator, out, 186.0, 152.0, tip_x, tip_y, if in_stop { "var(--accent)" } else { "var(--ink)" }, 7.0, "");
+
+    // Target dummy (flashes during hitstop!)
+    try svg::rect(allocator, out, target_x, 126.0, 52.0, 86.0, 8.0,
+        if in_stop { "var(--accent)" } else if after { "var(--muted)" } else { "var(--paper)" }, "var(--ink)", 2.0);
+    try svg::circle(allocator, out, target_x + 26.0, 168.0, 14.0, "none", if in_stop { "#ffffff" } else { "var(--accent)" }, 3.0);
+
+    // Hit flash spark during hitstop
+    if in_stop {
+        try svg::line(allocator, out, 294.0, 128.0, 322.0, 182.0, "#ffffff", 4.0, "");
+        try svg::line(allocator, out, 276.0, 156.0, 340.0, 150.0, "var(--accent)", 3.0, "");
+        try svg::badge(allocator, out, 180.0, 26.0, 120.0, 24.0, "var(--accent)", "#ffffff", "HITSTOP FREEZE");
+    }
+    try out.append_bytes(allocator, "</g>");
+    try svg::text(allocator, out, 240.0, 246.0, 11.0, "middle", "var(--muted)", "700", true, "攻撃ボタンで斬撃の重みを比較");
+    try svg::end(allocator, out);
+
+    try readout.append_bytes(allocator, "ヒットストップ ");
+    try svg::append_int(allocator, readout, cast<i64>(stop_f));
+    try readout.append_bytes(allocator, "F / ");
+    try readout.append_bytes(allocator, if stop_f == 0 { "素通りで軽い" } else if stop_f <= 5 { "心地よい手応え" } else { "必殺技級の重い一撃" });
+
+    try hint.append_bytes(allocator, "攻撃ヒット時に");
+    try svg::append_int(allocator, hint, cast<i64>(stop_f));
+    try hint.append_bytes(allocator, "フレームのヒットストップ");
+    if shake_on { try hint.append_bytes(allocator, "と軽い画面振動"); }
+    try hint.append_bytes(allocator, "を入れる");
+    return;
+}
+
+// 43: Coyote time (p0=grace_ms 0..180, p1=press_delay_ms 0..160, tick=0..900)
+fn demo_coyote(allocator: Allocator, p: params::Params, out: &var string::String, readout: &var string::String, hint: &var string::String) -> mem::Error!void {
+    let grace = svg::clamp_i32(p.p0, 0, 180);
+    let press_late = svg::clamp_i32(p.p1, 0, 160);
+    let saved = press_late <= grace;
+    let t = cast<f64>(svg::clamp_i32(p.tick, 0, 900)) / 900.0;
+
+    let cliff_x = 228.0;
+    let grace_px = cast<f64>(grace) * 0.48;
+    let press_x = cliff_x + cast<f64>(press_late) * 0.48;
+
+    try svg::begin(allocator, out, 480, 270);
+    try svg::rect(allocator, out, 0.0, 0.0, 480.0, 270.0, 8.0, "var(--sheet)", "var(--rule)", 1.0);
+
+    // Left cliff & right goal cliff
+    try svg::rect(allocator, out, 18.0, 174.0, 210.0, 82.0, 4.0, "var(--ink)", "", 0.0);
+    try svg::rect(allocator, out, 354.0, 174.0, 108.0, 82.0, 4.0, "var(--ink)", "", 0.0);
+
+    // Coyote grace zone visualization past cliff edge
+    if grace > 0 {
+        try svg::rect(allocator, out, cliff_x, 164.0, grace_px, 14.0, 3.0, "#1d7a4655", "#1d7a46", 1.2);
+        try svg::text(allocator, out, cliff_x + grace_px * 0.5, 156.0, 10.0, "middle", "#1d7a46", "700", true, "猶予");
+    }
+
+    // Jump press marker
+    try svg::line(allocator, out, press_x, 118.0, press_x, 192.0, "var(--accent)", 2.0, "3 3");
+    try svg::badge(allocator, out, press_x - 36.0, 94.0, 72.0, 20.0, "var(--accent)", "#ffffff", "押下位置");
+
+    // Trajectory curve & animated runner
+    if saved {
+        try out.append_bytes(allocator, "<path d='M 64 156 L ");
+        try svg::append_f1(allocator, out, press_x);
+        try out.append_bytes(allocator, " 156 Q ");
+        try svg::append_f1(allocator, out, (press_x + 392.0) * 0.5);
+        try out.append_bytes(allocator, " 42 392 156' fill='none' stroke='#1d7a46' stroke-width='3'/>");
+    } else {
+        try out.append_bytes(allocator, "<path d='M 64 156 L 228 156 Q 272 162 292 256' fill='none' stroke='#c93424' stroke-width='3' stroke-dasharray='5 4'/>");
+    }
+
+    var rx = 64.0;
+    var ry = 156.0;
+    if t > 0.0 {
+        if saved {
+            if t < 0.45 {
+                rx = svg::lerp(64.0, press_x, t / 0.45);
+                ry = 156.0;
+            } else {
+                let u = (t - 0.45) / 0.55;
+                rx = svg::lerp(press_x, 392.0, u);
+                ry = 156.0 - 4.0 * 88.0 * u * (1.0 - u);
+            }
+        } else {
+            if t < 0.45 {
+                rx = svg::lerp(64.0, 228.0, t / 0.45);
+                ry = 156.0;
+            } else {
+                let u = (t - 0.45) / 0.55;
+                rx = 228.0 + u * 66.0;
+                ry = 156.0 + u * u * 104.0;
+            }
+        }
+    }
+    try svg::rect(allocator, out, rx - 10.0, ry - 18.0, 20.0, 20.0, 4.0, if saved { "var(--accent)" } else { "#c93424" }, "var(--paper)", 1.5);
+
+    try svg::badge(allocator, out, 18.0, 18.0, 162.0, 24.0, if saved { "#1d7a46" } else { "#c93424" }, "#ffffff",
+        if saved { "ジャンプ成功 (猶予内)" } else { "不発で落下 (シビアすぎ)" });
+    try svg::end(allocator, out);
+
+    try readout.append_bytes(allocator, "猶予 ");
+    try svg::append_int(allocator, readout, cast<i64>(grace));
+    try readout.append_bytes(allocator, "ms / 崖から ");
+    try svg::append_int(allocator, readout, cast<i64>(press_late));
+    try readout.append_bytes(allocator, "ms 遅れ → ");
+    try readout.append_bytes(allocator, if saved { "成功" } else { "落下" });
+
+    try hint.append_bytes(allocator, "足場を離れてから");
+    try svg::append_int(allocator, hint, cast<i64>(grace));
+    try hint.append_bytes(allocator, "ms間ジャンプを受け付けるコヨーテタイムを入れる");
+    return;
+}
+
+// 44: Input buffer (p0=buffer_ms 0..180, p1=early_ms 0..150, tick=0..900)
+fn demo_input_buffer(allocator: Allocator, p: params::Params, out: &var string::String, readout: &var string::String, hint: &var string::String) -> mem::Error!void {
+    let buf_ms = svg::clamp_i32(p.p0, 0, 180);
+    let early = svg::clamp_i32(p.p1, 0, 150);
+    let accepted = early <= buf_ms;
+    let t = cast<f64>(svg::clamp_i32(p.tick, 0, 900)) / 900.0;
+
+    try svg::begin(allocator, out, 480, 270);
+    try svg::rect(allocator, out, 0.0, 0.0, 480.0, 270.0, 8.0, "var(--sheet)", "var(--rule)", 1.0);
+
+    // Floor + landing bounce character
+    try svg::line(allocator, out, 32.0, 168.0, 448.0, 168.0, "var(--ink)", 2.5, "");
+    var cy = 62.0;
+    if t > 0.0 {
+        if t < 0.45 {
+            let u = t / 0.45;
+            cy = 62.0 + u * u * 88.0;
+        } else if accepted {
+            let u = (t - 0.45) / 0.55;
+            cy = 150.0 - 4.0 * 92.0 * u * (1.0 - u);
+        } else {
+            cy = 150.0;
+        }
+    }
+    try svg::rect(allocator, out, 224.0, cy - 12.0, 32.0, 30.0, 6.0, if accepted { "var(--accent)" } else { "var(--muted)" }, "var(--ink)", 1.5);
+
+    // Timeline at bottom showing landing instant & buffer window before it
+    let land_x = 320.0;
+    let buf_w = cast<f64>(buf_ms) * 1.1;
+    let press_x = land_x - cast<f64>(early) * 1.1;
+    try svg::line(allocator, out, 52.0, 218.0, 428.0, 218.0, "var(--rule)", 3.0, "");
+    if buf_ms > 0 {
+        try svg::rect(allocator, out, land_x - buf_w, 206.0, buf_w, 24.0, 4.0, "#1d7a4644", "#1d7a46", 1.2);
+    }
+    try svg::line(allocator, out, land_x, 192.0, land_x, 242.0, "var(--ink)", 2.5, "");
+    try svg::text(allocator, out, land_x, 256.0, 10.0, "middle", "var(--ink)", "800", true, "着地 0ms");
+    try svg::circle(allocator, out, press_x, 218.0, 7.0, "var(--accent)", "#ffffff", 1.5);
+    try svg::text(allocator, out, press_x, 198.0, 10.0, "middle", "var(--accent)", "700", false, "早押し");
+
+    try svg::badge(allocator, out, 18.0, 18.0, 182.0, 24.0, if accepted { "#1d7a46" } else { "#c93424" }, "#ffffff",
+        if accepted { "先行入力受理 → 着地即ジャンプ" } else { "早押し無効 → モッサリ無反応" });
+    try svg::end(allocator, out);
+
+    try readout.append_bytes(allocator, "バッファ ");
+    try svg::append_int(allocator, readout, cast<i64>(buf_ms));
+    try readout.append_bytes(allocator, "ms / 着地 ");
+    try svg::append_int(allocator, readout, cast<i64>(early));
+    try readout.append_bytes(allocator, "ms 前押下 → ");
+    try readout.append_bytes(allocator, if accepted { "即ジャンプ" } else { "無視" });
+
+    try hint.append_bytes(allocator, "着地や硬直終了の");
+    try svg::append_int(allocator, hint, cast<i64>(buf_ms));
+    try hint.append_bytes(allocator, "ms前からの押下を保持する先行入力(入力バッファ)を入れる");
+    return;
+}
+
+// 45: Easing curves (p0=selected 0..4, tick=0..1000)
+fn ease_fn(kind: i32, u: f64) -> f64 {
+    let t = svg::clamp_f64(u, 0.0, 1.0);
+    if kind == 0 { return t; } // linear
+    if kind == 1 { return 1.0 - (1.0 - t) * (1.0 - t) * (1.0 - t); } // ease-out cubic
+    if kind == 2 {
+        if t < 0.5 { return 4.0 * t * t * t; }
+        let m = -2.0 * t + 2.0;
+        return 1.0 - m * m * m * 0.5;
+    } // ease-in-out
+    if kind == 3 {
+        let c1 = 1.70158;
+        let c3 = c1 + 1.0;
+        let k = t - 1.0;
+        return 1.0 + c3 * k * k * k + c1 * k * k;
+    } // overshoot (ease-out back)
+    // bounce
+    if t < 1.0 / 2.75 { return 7.5625 * t * t; }
+    if t < 2.0 / 2.75 { let k = t - 1.5 / 2.75; return 7.5625 * k * k + 0.75; }
+    if t < 2.5 / 2.75 { let k = t - 2.25 / 2.75; return 7.5625 * k * k + 0.9375; }
+    let k = t - 2.625 / 2.75;
+    return 7.5625 * k * k + 0.984375;
+}
+
+fn demo_easing(allocator: Allocator, p: params::Params, out: &var string::String, readout: &var string::String, hint: &var string::String) -> mem::Error!void {
+    let sel = svg::clamp_i32(p.p0, 0, 4);
+    let u = if p.tick == 0 { 0.0 } else { cast<f64>(svg::clamp_i32(p.tick % 1000, 0, 999)) / 1000.0 };
+
+    try svg::begin(allocator, out, 480, 270);
+    try svg::rect(allocator, out, 0.0, 0.0, 480.0, 270.0, 8.0, "var(--sheet)", "var(--rule)", 1.0);
+
+    // 5 parallel racing tracks on left
+    for 0..5 |i| {
+        let y = 42.0 + cast<f64>(i) * 44.0;
+        let active = cast<i32>(i) == sel;
+        try svg::line(allocator, out, 108.0, y, 294.0, y, if active { "var(--accent)" } else { "var(--rule)" }, if active { 2.5 } else { 1.5 }, "");
+        let v = ease_fn(cast<i32>(i), u);
+        let bx = 108.0 + v * 172.0;
+        try svg::circle(allocator, out, bx, y, if active { 9.0 } else { 6.5 }, if active { "var(--accent)" } else { "var(--ink)" }, "", 0.0);
+        if i == 0 { try svg::text(allocator, out, 20.0, y + 4.0, 11.0, "start", if active { "var(--accent)" } else { "var(--muted)" }, "700", true, "Linear"); }
+        else if i == 1 { try svg::text(allocator, out, 20.0, y + 4.0, 11.0, "start", if active { "var(--accent)" } else { "var(--muted)" }, "700", true, "Ease-Out"); }
+        else if i == 2 { try svg::text(allocator, out, 20.0, y + 4.0, 11.0, "start", if active { "var(--accent)" } else { "var(--muted)" }, "700", true, "In-Out"); }
+        else if i == 3 { try svg::text(allocator, out, 20.0, y + 4.0, 11.0, "start", if active { "var(--accent)" } else { "var(--muted)" }, "700", true, "Overshoot"); }
+        else { try svg::text(allocator, out, 20.0, y + 4.0, 11.0, "start", if active { "var(--accent)" } else { "var(--muted)" }, "700", true, "Bounce"); }
+    }
+
+    // Selected curve plot on right
+    try svg::rect(allocator, out, 326.0, 42.0, 134.0, 174.0, 6.0, "var(--paper)", "var(--rule)", 1.0);
+    try out.append_bytes(allocator, "<path d='M 338 ");
+    for 0..25 |k| {
+        let frac = cast<f64>(k) / 24.0;
+        let gx = 338.0 + frac * 110.0;
+        let gy = 194.0 - ease_fn(sel, frac) * 124.0;
+        if k == 0 {
+            try svg::append_f1(allocator, out, gy);
+        } else {
+            try out.append_bytes(allocator, " L ");
+            try svg::append_f1(allocator, out, gx);
+            try out.append_byte(allocator, 32);
+            try svg::append_f1(allocator, out, gy);
+        }
+    }
+    try out.append_bytes(allocator, "' fill='none' stroke='var(--accent)' stroke-width='3'/>");
+    try svg::text(allocator, out, 393.0, 238.0, 10.0, "middle", "var(--muted)", "700", true, "CURVE");
+    try svg::end(allocator, out);
+
+    if sel == 0 { try readout.append_bytes(allocator, "Linear / 等速で機械的"); }
+    else if sel == 1 { try readout.append_bytes(allocator, "Ease-Out / 初速が速くスッと止まる (UI定番)"); }
+    else if sel == 2 { try readout.append_bytes(allocator, "Ease-In-Out / 滑らかな移動"); }
+    else if sel == 3 { try readout.append_bytes(allocator, "Overshoot / 行き過ぎて戻る弾み感"); }
+    else { try readout.append_bytes(allocator, "Bounce / 着地で跳ねる演出"); }
+
+    try hint.append_bytes(allocator, "等速(Linear)をやめ、開く動きにEase-Out(または軽いOvershoot)のイージングを使う");
+    return;
+}
+
+// 46: Telegraphing (p0=telegraph_ms 0..700, tick=0..1000)
+fn demo_telegraph(allocator: Allocator, p: params::Params, out: &var string::String, readout: &var string::String, hint: &var string::String) -> mem::Error!void {
+    let windup = svg::clamp_i32(p.p0, 0, 700);
+    let t = svg::clamp_i32(p.tick, 0, 1000);
+    let start_at: i32 = 160;
+    let strike_at = start_at + windup;
+    let in_windup = t >= start_at and t < strike_at and windup > 0;
+    let in_strike = t >= strike_at and t < strike_at + 180;
+
+    try svg::begin(allocator, out, 480, 270);
+    try svg::rect(allocator, out, 0.0, 0.0, 480.0, 270.0, 8.0, "var(--sheet)", "var(--rule)", 1.0);
+    try svg::line(allocator, out, 28.0, 206.0, 452.0, 206.0, "var(--rule)", 2.0, "");
+
+    // Danger zone telegraph floor
+    if in_windup {
+        let charge = cast<f64>(t - start_at) / cast<f64>(windup);
+        try svg::rect(allocator, out, 64.0, 184.0, 212.0, 22.0, 4.0, "#ff4d0033", "#ff4d00", 1.5);
+        try svg::rect(allocator, out, 64.0, 184.0, 212.0 * charge, 22.0, 4.0, "#ff4d0088", "", 0.0);
+        try svg::badge(allocator, out, 114.0, 32.0, 124.0, 24.0, "var(--accent)", "#ffffff", "予兆！ 避けられる");
+    } else if in_strike {
+        try svg::rect(allocator, out, 64.0, 88.0, 212.0, 118.0, 6.0, "#c93424cc", "", 0.0);
+        try svg::text(allocator, out, 170.0, 152.0, 18.0, "middle", "#ffffff", "900", false, "強攻撃 発動！");
+    }
+
+    // Player & Boss
+    let px = if in_windup and windup >= 300 { 38.0 } else { 150.0 };
+    try svg::circle(allocator, out, px, 188.0, 14.0, "var(--ink)", "var(--paper)", 2.0);
+    let bx = if in_windup { 378.0 } else { 344.0 }; // pulls back during windup!
+    try svg::rect(allocator, out, bx, 112.0, 64.0, 94.0, 10.0, if in_windup { "var(--accent)" } else { "var(--ink)" }, "", 0.0);
+    try svg::text(allocator, out, bx + 32.0, 162.0, 12.0, "middle", "#ffffff", "800", false, "BOSS");
+
+    try svg::text(allocator, out, 240.0, 242.0, 12.0, "middle", "var(--muted)", "600", false,
+        if windup == 0 { "予兆 0ms: いきなり発動して理不尽に見える" } else { "溜めポーズ＋範囲予告で「見てから避けられる」納得感" });
+    try svg::end(allocator, out);
+
+    try readout.append_bytes(allocator, "予兆 ");
+    try svg::append_int(allocator, readout, cast<i64>(windup));
+    try readout.append_bytes(allocator, "ms / ");
+    try readout.append_bytes(allocator, if windup < 250 { "反応困難 (理不尽)" } else { "見てから回避可能" });
+
+    try hint.append_bytes(allocator, "強攻撃の");
+    try svg::append_int(allocator, hint, cast<i64>(windup));
+    try hint.append_bytes(allocator, "ms前に範囲予告と溜めモーションの予兆(テレグラフ)を入れる");
+    return;
+}
+
+// 47: Game juice (p0=squash, p1=particles, p2=shake, p3=flash, tick=0..600)
+fn demo_game_juice(allocator: Allocator, p: params::Params, out: &var string::String, readout: &var string::String, hint: &var string::String) -> mem::Error!void {
+    let squash = p.p0 != 0;
+    let parts = p.p1 != 0;
+    let shake = p.p2 != 0;
+    let flash = p.p3 != 0;
+    let t = svg::clamp_i32(p.tick, 0, 600);
+    let active = t > 0 and t < 480;
+    let u = cast<f64>(t) / 480.0;
+
+    var ox = 0.0;
+    var oy = 0.0;
+    if active and shake and t < 160 {
+        ox = if ((t / 24) % 2) == 0 { 6.0 } else { -6.0 };
+        oy = if ((t / 30) % 2) == 0 { -4.0 } else { 4.0 };
+    }
+    var rx = 44.0;
+    var ry = 44.0;
+    if active and squash and t < 240 {
+        let wave = math::sin<f64>((cast<f64>(t) / 240.0) * math::pi<f64>()) * 14.0;
+        rx = 44.0 + wave;
+        ry = 44.0 - wave * 0.8;
+    }
+
+    try svg::begin(allocator, out, 480, 270);
+    try svg::rect(allocator, out, 0.0, 0.0, 480.0, 270.0, 8.0, if active and flash and t < 90 { "#ff4d0028" } else { "var(--sheet)" }, "var(--rule)", 1.0);
+    try out.append_bytes(allocator, "<g transform='translate(");
+    try svg::append_f1(allocator, out, ox);
+    try out.append_byte(allocator, 32);
+    try svg::append_f1(allocator, out, oy);
+    try out.append_bytes(allocator, ")'>");
+
+    // Particles bursting radially
+    if active and parts {
+        for 0..8 |i| {
+            let ang = cast<f64>(i) * (math::tau<f64>() / 8.0) + 0.3;
+            let dist = 36.0 + u * 92.0;
+            let px = 240.0 + math::cos<f64>(ang) * dist;
+            let py = 132.0 + math::sin<f64>(ang) * dist;
+            let pr = math::max<f64>(1.5, (1.0 - u) * 8.0);
+            try svg::circle(allocator, out, px, py, pr, "var(--accent)", "", 0.0);
+        }
+    }
+
+    // Target coin / block
+    try out.append_bytes(allocator, "<ellipse cx='240' cy='132' rx='");
+    try svg::append_f1(allocator, out, rx);
+    try out.append_bytes(allocator, "' ry='");
+    try svg::append_f1(allocator, out, ry);
+    try out.append_bytes(allocator, "' fill='");
+    try out.append_bytes(allocator, if active and flash and t < 110 { "#ffffff" } else { "var(--accent)" });
+    try out.append_bytes(allocator, "' stroke='var(--ink)' stroke-width='2.5'/>");
+    try svg::text(allocator, out, 240.0, 138.0, 15.0, "middle", if active and flash and t < 110 { "var(--ink)" } else { "#ffffff" }, "900", true, "+100");
+    try out.append_bytes(allocator, "</g>");
+
+    var cnt: i64 = 0;
+    if squash { cnt = cnt + 1; }
+    if parts { cnt = cnt + 1; }
+    if shake { cnt = cnt + 1; }
+    if flash { cnt = cnt + 1; }
+    try svg::text(allocator, out, 240.0, 244.0, 11.0, "middle", "var(--muted)", "700", false,
+        if cnt == 0 { "素の状態 (動くが味気ない)" } else { "ルールを変えず演出だけ重ねて手触りを底上げ" });
+    try svg::end(allocator, out);
+
+    try readout.append_bytes(allocator, "ジュース演出 ");
+    try svg::append_int(allocator, readout, cnt);
+    try readout.append_bytes(allocator, "/4 ON");
+    try hint.append_bytes(allocator, "ルールは変えず、伸縮・パーティクル・画面微振動・閃光のジュース演出を足す");
+    return;
+}
+
+// 48: Signifier (p0=level 0:plain_text 1:subtle 2:clear_signifier)
+fn demo_signifier(allocator: Allocator, p: params::Params, out: &var string::String, readout: &var string::String, hint: &var string::String) -> mem::Error!void {
+    let lv = svg::clamp_i32(p.p0, 0, 2);
+
+    try svg::begin(allocator, out, 480, 270);
+    try svg::rect(allocator, out, 0.0, 0.0, 480.0, 270.0, 8.0, "var(--sheet)", "var(--rule)", 1.0);
+    try svg::rect(allocator, out, 58.0, 34.0, 364.0, 174.0, 8.0, "var(--paper)", "var(--rule)", 1.0);
+
+    try svg::text(allocator, out, 84.0, 74.0, 15.0, "start", "var(--ink)", "800", false, "保存前の確認");
+    try svg::text(allocator, out, 84.0, 102.0, 12.0, "start", "var(--muted)", "400", false, "変更をファイルへ書き出します");
+
+    if lv == 0 {
+        try svg::text(allocator, out, 84.0, 162.0, 13.0, "start", "var(--ink)", "500", false, "書き出す");
+        try svg::text(allocator, out, 184.0, 162.0, 13.0, "start", "var(--ink)", "500", false, "キャンセル");
+    } else if lv == 1 {
+        try svg::rect(allocator, out, 84.0, 140.0, 96.0, 34.0, 6.0, "none", "var(--rule)", 1.2);
+        try svg::text(allocator, out, 132.0, 162.0, 13.0, "middle", "var(--ink)", "600", false, "書き出す");
+        try svg::text(allocator, out, 224.0, 162.0, 13.0, "middle", "var(--muted)", "500", false, "キャンセル");
+    } else {
+        // Clear signifier: shadow, fill, icon, clear button shape
+        try svg::rect(allocator, out, 84.0, 141.0, 132.0, 38.0, 7.0, "#14141222", "", 0.0);
+        try svg::rect(allocator, out, 84.0, 138.0, 132.0, 38.0, 7.0, "var(--accent)", "", 0.0);
+        try svg::text(allocator, out, 150.0, 162.0, 13.0, "middle", "#ffffff", "800", false, "書き出す →");
+        try svg::rect(allocator, out, 232.0, 138.0, 102.0, 38.0, 7.0, "var(--sheet)", "var(--ink)", 1.5);
+        try svg::text(allocator, out, 283.0, 162.0, 13.0, "middle", "var(--ink)", "700", false, "戻る");
+    }
+
+    try svg::text(allocator, out, 240.0, 240.0, 12.0, "middle", "var(--muted)", "600", false,
+        if lv == 0 { "押せるボタンとただの見出しの見分けがつかない" } else if lv == 1 { "枠はあるが主操作の手がかりが弱い" } else { "塗り・影・矢印のシグニファイアで一目で押せると分かる" });
+    try svg::end(allocator, out);
+
+    if lv == 0 { try readout.append_bytes(allocator, "シグニファイアなし / 押せることに気づかれない"); }
+    else if lv == 1 { try readout.append_bytes(allocator, "弱シグニファイア / 少し迷う"); }
+    else { try readout.append_bytes(allocator, "明確なシグニファイア / 一目で押せそう"); }
+    try hint.append_bytes(allocator, "クリック可能な要素へ塗り・枠・矢印のシグニファイアを付けて見出しと分ける");
+    return;
+}
+
+// 49: Feedback states (p0=feedback_on 0/1, tick=0..900)
+fn demo_feedback_states(allocator: Allocator, p: params::Params, out: &var string::String, readout: &var string::String, hint: &var string::String) -> mem::Error!void {
+    let fb = p.p0 != 0;
+    let t = svg::clamp_i32(p.tick, 0, 900);
+    var stage: i32 = 0; // 0:idle 1:active 2:loading 3:done
+    if t > 0 and t < 120 { stage = 1; }
+    else if t >= 120 and t < 620 { stage = 2; }
+    else if t >= 620 { stage = 3; }
+
+    try svg::begin(allocator, out, 480, 270);
+    try svg::rect(allocator, out, 0.0, 0.0, 480.0, 270.0, 8.0, "var(--sheet)", "var(--rule)", 1.0);
+
+    let y_off = if fb and stage == 1 { 3.0 } else { 0.0 };
+    let fill = if !fb { "var(--ink)" } else if stage == 3 { "#1d7a46" } else if stage == 2 { "var(--muted)" } else { "var(--accent)" };
+    try svg::rect(allocator, out, 146.0, 88.0 + y_off, 188.0, 56.0, 8.0, fill, "", 0.0);
+    try svg::text(allocator, out, 240.0, 122.0 + y_off, 15.0, "middle", "#ffffff", "800", false,
+        if !fb { "保存する" } else if stage == 0 { "保存する" } else if stage == 1 { "押下!" } else if stage == 2 { "保存中…" } else { "保存完了 ✓" });
+
+    // State strip
+    for 0..4 |i| {
+        let bx = 48.0 + cast<f64>(i) * 100.0;
+        let on = fb and cast<i32>(i) == stage;
+        try svg::rect(allocator, out, bx, 182.0, 84.0, 28.0, 5.0, if on { "var(--accent)" } else { "var(--paper)" }, "var(--rule)", 1.0);
+        try svg::text(allocator, out, bx + 42.0, 200.0, 10.0, "middle", if on { "#ffffff" } else { "var(--muted)" }, "700", true,
+            if i == 0 { "IDLE" } else if i == 1 { "ACTIVE" } else if i == 2 { "LOADING" } else { "DONE" });
+    }
+    try svg::text(allocator, out, 240.0, 242.0, 11.0, "middle", "var(--muted)", "600", false,
+        if fb { "押下→処理中→完了が伝わり連打を防げる" } else { "無反応だと不安になり何度も連打してしまう" });
+    try svg::end(allocator, out);
+
+    try readout.append_bytes(allocator, if fb { "4状態フィードバック ON" } else { "無反応 (連打リスク大)" });
+    try hint.append_bytes(allocator, "ボタンに押下反応・処理中ローディング・完了表示のフィードバック状態を入れる");
+    return;
+}
+
+// 50: Skeleton vs Spinner (p0=skeleton 0/1, tick=0..900)
+fn demo_skeleton(allocator: Allocator, p: params::Params, out: &var string::String, readout: &var string::String, hint: &var string::String) -> mem::Error!void {
+    let skel = p.p0 != 0;
+    let loaded = p.tick >= 640;
+
+    try svg::begin(allocator, out, 480, 270);
+    try svg::rect(allocator, out, 0.0, 0.0, 480.0, 270.0, 8.0, "var(--sheet)", "var(--rule)", 1.0);
+    try svg::rect(allocator, out, 64.0, 22.0, 352.0, 198.0, 8.0, "var(--paper)", "var(--rule)", 1.2);
+
+    if loaded {
+        try svg::rect(allocator, out, 84.0, 42.0, 110.0, 74.0, 6.0, "var(--accent)", "", 0.0);
+        try svg::text(allocator, out, 210.0, 64.0, 15.0, "start", "var(--ink)", "800", false, "記事タイトル表示");
+        try svg::text(allocator, out, 210.0, 88.0, 11.0, "start", "var(--muted)", "500", false, "概要テキストが読み込まれました");
+        try svg::rect(allocator, out, 84.0, 134.0, 312.0, 66.0, 6.0, "var(--sheet)", "var(--rule)", 1.0);
+        try svg::text(allocator, out, 240.0, 172.0, 12.0, "middle", "var(--ink)", "700", false, "下のボタン位置 (CLS 確認)");
+    } else if skel {
+        // Exact same geometry skeleton -> 0 CLS
+        try svg::rect(allocator, out, 84.0, 42.0, 110.0, 74.0, 6.0, "var(--grid)", "", 0.0);
+        try svg::rect(allocator, out, 210.0, 48.0, 146.0, 18.0, 4.0, "var(--grid)", "", 0.0);
+        try svg::rect(allocator, out, 210.0, 76.0, 180.0, 12.0, 4.0, "var(--grid)", "", 0.0);
+        try svg::rect(allocator, out, 84.0, 134.0, 312.0, 66.0, 6.0, "var(--grid)", "", 0.0);
+    } else {
+        // Blank spinner + shifted footer button (causes CLS jump!)
+        try svg::circle(allocator, out, 240.0, 84.0, 16.0, "none", "var(--accent)", 3.0);
+        try svg::rect(allocator, out, 84.0, 116.0, 312.0, 42.0, 6.0, "var(--sheet)", "#c93424", 1.2);
+        try svg::text(allocator, out, 240.0, 142.0, 11.0, "middle", "#c93424", "700", false, "完了後に下へガクッとズレる (CLS)");
+    }
+
+    try svg::text(allocator, out, 240.0, 246.0, 12.0, "middle", "var(--muted)", "700", false,
+        if skel { "スケルトン: 骨格が先に見えて体感待ち短縮・ズレ 0" } else { "空白＋スピナー: 遅く感じ、読込後にレイアウトが跳ねる" });
+    try svg::end(allocator, out);
+
+    try readout.append_bytes(allocator, if skel { "スケルトンスクリーン / レイアウトズレ 0" } else { "中央スピナー / 読込後にガクッとズレる" });
+    try hint.append_bytes(allocator, "一覧の読込は中央スピナーではなく表示後の形に合わせたスケルトンスクリーンにする");
+    return;
+}
+
+// 51: Empty state (p0=helpful 0/1)
+fn demo_empty_state(allocator: Allocator, p: params::Params, out: &var string::String, readout: &var string::String, hint: &var string::String) -> mem::Error!void {
+    let helpful = p.p0 != 0;
+
+    try svg::begin(allocator, out, 480, 270);
+    try svg::rect(allocator, out, 0.0, 0.0, 480.0, 270.0, 8.0, "var(--sheet)", "var(--rule)", 1.0);
+    try svg::rect(allocator, out, 52.0, 24.0, 376.0, 196.0, 8.0, "var(--paper)", "var(--rule)", 1.2);
+    // Search bar header inside mock
+    try svg::rect(allocator, out, 68.0, 38.0, 344.0, 28.0, 5.0, "var(--sheet)", "var(--rule)", 1.0);
+    try svg::text(allocator, out, 80.0, 56.0, 11.0, "start", "var(--muted)", "600", true, "search: xyz123");
+
+    if !helpful {
+        try svg::text(allocator, out, 240.0, 248.0, 12.0, "middle", "#c93424", "700", false, "真っ白のまま → 壊れたのか0件なのか分からない");
+    } else {
+        try svg::circle(allocator, out, 240.0, 108.0, 18.0, "var(--grid)", "var(--rule)", 1.2);
+        try svg::text(allocator, out, 240.0, 113.0, 14.0, "middle", "var(--muted)", "800", true, "0");
+        try svg::text(allocator, out, 240.0, 148.0, 13.0, "middle", "var(--ink)", "800", false, "一致する項目はありません");
+        try svg::rect(allocator, out, 174.0, 164.0, 132.0, 32.0, 6.0, "var(--accent)", "", 0.0);
+        try svg::text(allocator, out, 240.0, 185.0, 12.0, "middle", "#ffffff", "800", false, "条件をリセット");
+        try svg::text(allocator, out, 240.0, 248.0, 12.0, "middle", "#1d7a46", "700", false, "状況説明＋次の行動ボタンで迷わせない");
+    }
+    try svg::end(allocator, out);
+
+    try readout.append_bytes(allocator, if helpful { "エンプティステートあり / 理由と次行動を提示" } else { "ただの空白 / 不具合と誤解されやすい" });
+    try hint.append_bytes(allocator, "0件時や初回に真っ白にせず、理由と次行動ボタンのあるエンプティステートを用意する");
+    return;
+}
+
+// 52: Notification patterns (p0=event 0:saved 1:input_err 2:delete_all, p1=ui 0:toast 1:inline 2:modal)
+fn demo_notifications(allocator: Allocator, p: params::Params, out: &var string::String, readout: &var string::String, hint: &var string::String) -> mem::Error!void {
+    let ev = svg::clamp_i32(p.p0, 0, 2);
+    let ui = svg::clamp_i32(p.p1, 0, 2);
+    let good = ev == ui;
+
+    try svg::begin(allocator, out, 480, 270);
+    try svg::rect(allocator, out, 0.0, 0.0, 480.0, 270.0, 8.0, "var(--sheet)", "var(--rule)", 1.0);
+    // Mock form canvas
+    try svg::rect(allocator, out, 36.0, 26.0, 408.0, 176.0, 8.0, "var(--paper)", "var(--rule)", 1.0);
+    try svg::rect(allocator, out, 64.0, 56.0, 220.0, 32.0, 5.0, "var(--sheet)", if ui == 1 { "#c93424" } else { "var(--rule)" }, 1.5);
+    try svg::text(allocator, out, 76.0, 77.0, 11.0, "start", "var(--muted)", "600", true, "email: invalid@");
+
+    if ui == 0 {
+        // Toast at bottom-right
+        try svg::rect(allocator, out, 256.0, 152.0, 172.0, 36.0, 6.0, "var(--ink)", "", 0.0);
+        try svg::text(allocator, out, 342.0, 174.0, 11.0, "middle", "var(--paper)", "700", false, "トースト: 数秒で消える");
+    } else if ui == 1 {
+        // Inline right under field
+        try svg::text(allocator, out, 66.0, 108.0, 11.0, "start", "#c93424", "800", false, "▲ インライン: メール形式が正しくありません");
+    } else {
+        // Blocking modal overlay
+        try svg::rect(allocator, out, 36.0, 26.0, 408.0, 176.0, 8.0, "#14141288", "", 0.0);
+        try svg::rect(allocator, out, 128.0, 62.0, 224.0, 104.0, 8.0, "var(--sheet)", "var(--ink)", 1.8);
+        try svg::text(allocator, out, 240.0, 96.0, 12.0, "middle", "var(--ink)", "800", false, "モーダル (操作を止めて確認)");
+        try svg::badge(allocator, out, 194.0, 124.0, 92.0, 26.0, "#c93424", "#ffffff", "確認する");
+    }
+
+    try svg::badge(allocator, out, 36.0, 218.0, 92.0, 26.0, if good { "#1d7a46" } else { "#c93424" }, "#ffffff",
+        if good { "適切 ◎" } else { "ミスマッチ" });
+    try svg::text(allocator, out, 142.0, 236.0, 12.0, "start", "var(--ink)", "700", false,
+        if good { "重要度と邪魔しなさのバランスが合致" } else if ui == 2 { "軽い通知で画面を止めるのは煩わしい" } else if ev == 2 { "取り消せない削除に確認モーダルが無いのは危険" } else { "入力ミスは項目直下のインラインが直感的" });
+    try svg::end(allocator, out);
+
+    try readout.append_bytes(allocator, if good { "適切な通知パターン" } else { "イベントと通知方式がミスマッチ" });
+    try hint.append_bytes(allocator, "保存完了はトースト、入力ミスはインライン、危険な削除だけモーダルにする");
+    return;
+}
+
+// 53: Button hierarchy (p0=structured 0/1)
+fn demo_button_hierarchy(allocator: Allocator, p: params::Params, out: &var string::String, readout: &var string::String, hint: &var string::String) -> mem::Error!void {
+    let good = p.p0 != 0;
+
+    try svg::begin(allocator, out, 480, 270);
+    try svg::rect(allocator, out, 0.0, 0.0, 480.0, 270.0, 8.0, "var(--sheet)", "var(--rule)", 1.0);
+    try svg::rect(allocator, out, 48.0, 34.0, 384.0, 174.0, 10.0, "var(--paper)", "var(--rule)", 1.2);
+    try svg::text(allocator, out, 74.0, 74.0, 15.0, "start", "var(--ink)", "800", false, "プロジェクト設定");
+    try svg::text(allocator, out, 74.0, 102.0, 12.0, "start", "var(--muted)", "400", false, "変更を保存するか、この項目を削除します");
+
+    if !good {
+        // All buttons identical -> accidental delete!
+        try svg::rect(allocator, out, 74.0, 144.0, 104.0, 38.0, 6.0, "var(--accent)", "", 0.0);
+        try svg::text(allocator, out, 126.0, 168.0, 12.0, "middle", "#ffffff", "700", false, "削除する");
+        try svg::rect(allocator, out, 190.0, 144.0, 104.0, 38.0, 6.0, "var(--accent)", "", 0.0);
+        try svg::text(allocator, out, 242.0, 168.0, 12.0, "middle", "#ffffff", "700", false, "キャンセル");
+        try svg::rect(allocator, out, 306.0, 144.0, 104.0, 38.0, 6.0, "var(--accent)", "", 0.0);
+        try svg::text(allocator, out, 358.0, 168.0, 12.0, "middle", "#ffffff", "700", false, "保存する");
+    } else {
+        // Destructive separated on far left; Secondary + Primary grouped on right
+        try svg::rect(allocator, out, 74.0, 144.0, 84.0, 38.0, 6.0, "none", "#c93424", 1.5);
+        try svg::text(allocator, out, 116.0, 168.0, 12.0, "middle", "#c93424", "700", false, "削除");
+        try svg::rect(allocator, out, 212.0, 144.0, 92.0, 38.0, 6.0, "var(--sheet)", "var(--rule)", 1.5);
+        try svg::text(allocator, out, 258.0, 168.0, 12.0, "middle", "var(--ink)", "700", false, "戻る");
+        try svg::rect(allocator, out, 314.0, 144.0, 96.0, 38.0, 6.0, "var(--accent)", "", 0.0);
+        try svg::text(allocator, out, 362.0, 168.0, 12.0, "middle", "#ffffff", "800", false, "保存する");
+    }
+
+    try svg::text(allocator, out, 240.0, 242.0, 12.0, "middle", "var(--muted)", "600", false,
+        if good { "主行動1つを塗り、破壊的操作は色と距離を離す" } else { "全部同じ強さだと迷い、うっかり削除を押しやすい" });
+    try svg::end(allocator, out);
+
+    try readout.append_bytes(allocator, if good { "プライマリ / セカンダリ / 破壊的操作を明確分離" } else { "階層なし (誤操作リスク高)" });
+    try hint.append_bytes(allocator, "主行動を1つだけプライマリボタンにし、キャンセルはセカンダリ、削除は赤枠で距離を離す");
+    return;
+}

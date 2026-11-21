@@ -1,0 +1,115 @@
+// UI state machines for domain-words (std::machine compatible).
+
+pub enum Outcome {
+    Applied,
+    Ignored,
+}
+
+pub enum PanelTab {
+    Controls,
+    Prompt,
+    Compare,
+}
+
+pub enum PanelEvent {
+    ToControls,
+    ToPrompt,
+    ToCompare,
+    SelectWord,
+}
+
+pub fn panel_next(state: PanelTab, event: PanelEvent) -> PanelTab {
+    if event == PanelEvent::ToControls {
+        return PanelTab::Controls;
+    }
+    if event == PanelEvent::ToPrompt {
+        return PanelTab::Prompt;
+    }
+    if event == PanelEvent::ToCompare {
+        return PanelTab::Compare;
+    }
+    if event == PanelEvent::SelectWord {
+        return PanelTab::Controls;
+    }
+    return state;
+}
+
+pub fn panel_outcome(state: PanelTab, event: PanelEvent) -> Outcome {
+    if panel_next(state, event) != state {
+        return Outcome::Applied;
+    }
+    return Outcome::Ignored;
+}
+
+pub fn panel_end(_state: PanelTab) -> bool {
+    return false;
+}
+
+pub enum Drawer {
+    Closed,
+    Open,
+}
+
+pub enum DrawerEvent {
+    Open,
+    Close,
+    Toggle,
+    PickWord,
+    Escape,
+}
+
+pub fn drawer_next(state: Drawer, event: DrawerEvent) -> Drawer {
+    if event == DrawerEvent::Open {
+        return Drawer::Open;
+    }
+    if event == DrawerEvent::Close or event == DrawerEvent::PickWord or event == DrawerEvent::Escape {
+        return Drawer::Closed;
+    }
+    if state == Drawer::Closed {
+        return Drawer::Open;
+    }
+    return Drawer::Closed;
+}
+
+pub fn drawer_outcome(state: Drawer, event: DrawerEvent) -> Outcome {
+    if drawer_next(state, event) != state {
+        return Outcome::Applied;
+    }
+    return Outcome::Ignored;
+}
+
+pub fn drawer_end(_state: Drawer) -> bool {
+    return false;
+}
+
+pub enum Playback {
+    Idle,
+    Playing,
+}
+
+pub enum PlaybackEvent {
+    Play,
+    Stop,
+    WordChanged,
+}
+
+pub fn playback_next(state: Playback, event: PlaybackEvent) -> Playback {
+    if event == PlaybackEvent::Play {
+        return Playback::Playing;
+    }
+    if event == PlaybackEvent::Stop or event == PlaybackEvent::WordChanged {
+        return Playback::Idle;
+    }
+    return state;
+}
+
+pub fn playback_outcome(state: Playback, event: PlaybackEvent) -> Outcome {
+    if playback_next(state, event) != state {
+        return Outcome::Applied;
+    }
+    return Outcome::Ignored;
+}
+
+pub fn playback_end(_state: Playback) -> bool {
+    return false;
+}

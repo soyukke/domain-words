@@ -1,0 +1,19 @@
+name: Verify
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Check words.json sync
+        run: diff -u data/words.json web/data/words.json
+      - name: Verify Wasm demos, catalog, and state machines
+        run: node scripts/verify.mjs

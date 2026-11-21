@@ -1,0 +1,435 @@
+// Category 1: Thumbnail & Design demos (IDs 6..11).
+import domain_words::demos::params;
+import domain_words::svg;
+import std::math;
+import std::mem;
+import std::string;
+
+pub fn render(
+    allocator: Allocator,
+    word_id: i32,
+    p: params::Params,
+    out_svg: &var string::String,
+    out_readout: &var string::String,
+    out_hint: &var string::String,
+) -> mem::Error!void {
+    if word_id == 6 {
+        try demo_jump_ratio(allocator, p, out_svg, out_readout, out_hint);
+    } else if word_id == 7 {
+        try demo_kerning(allocator, p, out_svg, out_readout, out_hint);
+    } else if word_id == 8 {
+        try demo_whitespace(allocator, p, out_svg, out_readout, out_hint);
+    } else if word_id == 9 {
+        try demo_contrast_ratio(allocator, p, out_svg, out_readout, out_hint);
+    } else if word_id == 10 {
+        try demo_eye_flow(allocator, p, out_svg, out_readout, out_hint);
+    } else {
+        try demo_color_ratio(allocator, p, out_svg, out_readout, out_hint);
+    }
+    return;
+}
+
+// 6: Jump ratio (p0=ratio*10 11..40, p1=weight_contrast 0/1)
+fn demo_jump_ratio(
+    allocator: Allocator,
+    p: params::Params,
+    out: &var string::String,
+    readout: &var string::String,
+    hint: &var string::String,
+) -> mem::Error!void {
+    let ratio10 = svg::clamp_i32(p.p0, 11, 40);
+    let ratio = cast<f64>(ratio10) / 10.0;
+    let strong_w = p.p1 != 0;
+
+    let sub_size = 15.0;
+    let main_size = svg::clamp_f64(sub_size * ratio, 16.0, 62.0);
+    let sub_w = if strong_w { "400" } else { "700" };
+    let main_w = "900";
+
+    try svg::begin(allocator, out, 480, 270);
+    try svg::rect(allocator, out, 16.0, 16.0, 448.0, 238.0, 10.0, "#191918", "var(--rule)", 1.5);
+    // Decorative thumbnail graphic block on right
+    try svg::rect(allocator, out, 314.0, 42.0, 126.0, 186.0, 8.0, "#292926", "", 0.0);
+    try svg::circle(allocator, out, 377.0, 112.0, 34.0, "#ff4d00", "", 0.0);
+    try svg::rect(allocator, out, 340.0, 164.0, 74.0, 12.0, 4.0, "#504f49", "", 0.0);
+    try svg::rect(allocator, out, 352.0, 184.0, 50.0, 10.0, 4.0, "#3b3a36", "", 0.0);
+
+    // Copy stack on left
+    try svg::text(allocator, out, 40.0, 74.0, sub_size, "start", "#b4b2a8", sub_w, false, "ゼロから分かる");
+    try svg::text(allocator, out, 38.0, 152.0, main_size, "start", "#faf9f3", main_w, false, "新機能");
+    try svg::text(allocator, out, 40.0, 198.0, sub_size, "start", "#ff7433", sub_w, false, "3分で要点まとめ");
+
+    // Ratio pill
+    try svg::rect(allocator, out, 40.0, 218.0, 108.0, 22.0, 4.0, "#2d2c28", "", 0.0);
+    try out.append_bytes(allocator, "<text x='94' y='233' font-size='11' text-anchor='middle' fill='#f2f0e9' font-weight='700' font-family='var(--mono)'>RATIO ");
+    try svg::append_fixed1(allocator, out, ratio);
+    try out.append_bytes(allocator, "x</text>");
+    try svg::end(allocator, out);
+
+    try readout.append_bytes(allocator, "ジャンプ率 ");
+    try svg::append_fixed1(allocator, readout, ratio);
+    try readout.append_bytes(allocator, "x / ");
+    if ratio < 1.8 {
+        try readout.append_bytes(allocator, "主語と補足の差が小さく平坦");
+    } else if ratio < 2.8 {
+        try readout.append_bytes(allocator, "読みやすい標準の階層");
+    } else {
+        try readout.append_bytes(allocator, "主語が一目で飛び込む強いメリハリ");
+    }
+
+    try hint.append_bytes(allocator, "主見出しと補足文のジャンプ率を");
+    try svg::append_fixed1(allocator, hint, ratio);
+    try hint.append_bytes(allocator, "倍に設定");
+    return;
+}
+
+// 7: Kerning & tracking (p0=tracking -8..18, p1=kerning_on 0/1)
+fn demo_kerning(
+    allocator: Allocator,
+    p: params::Params,
+    out: &var string::String,
+    readout: &var string::String,
+    hint: &var string::String,
+) -> mem::Error!void {
+    let track = cast<f64>(svg::clamp_i32(p.p0, -8, 18));
+    let kern = p.p1 != 0;
+
+    // 5 glyphs: 開 発 ロ グ ！
+    let base_step = 56.0 + track;
+    // Per-pair kerning adjustments when kerning is ON
+    let k1 = if kern { -2.0 } else { 0.0 };  // 開-発
+    let k2 = if kern { -6.0 } else { 0.0 };  // 発-ロ
+    let k3 = if kern { -7.0 } else { 0.0 };  // ロ-グ
+    let k4 = if kern { -14.0 } else { 0.0 }; // グ-！
+
+    let x0 = 0.0;
+    let x1 = x0 + base_step + k1;
+    let x2 = x1 + base_step + k2;
+    let x3 = x2 + base_step + k3;
+    let x4 = x3 + base_step + k4;
+    let total_w = x4 + 44.0;
+    let ox = (480.0 - total_w) * 0.5 + 22.0;
+
+    try svg::begin(allocator, out, 480, 270);
+    try svg::rect(allocator, out, 0.0, 0.0, 480.0, 270.0, 8.0, "var(--sheet)", "var(--rule)", 1.0);
+
+    // Visualize bounding boxes & pair gaps
+    let xs = [5]f64{ ox + x0, ox + x1, ox + x2, ox + x3, ox + x4 };
+    for 0..5 |i| {
+        let gx = xs[i];
+        let bw = if i == 4 { 20.0 } else { 44.0 };
+        try svg::rect(allocator, out, gx - bw * 0.5, 92.0, bw, 66.0, 3.0, "var(--paper)", "var(--rule)", 1.0);
+    }
+
+    // Highlight gap markers between pairs
+    for 0..4 |i| {
+        let left_edge = xs[i] + 22.0;
+        let right_edge = xs[i + 1] - (if i == 3 { 10.0 } else { 22.0 });
+        let gap = right_edge - left_edge;
+        if gap > 1.0 {
+            let col = if kern { "var(--accent)" } else { "var(--muted)" };
+            try svg::rect(allocator, out, left_edge, 166.0, gap, 8.0, 2.0, col, "", 0.0);
+        }
+    }
+
+    try svg::text(allocator, out, xs[0], 144.0, 48.0, "middle", "var(--ink)", "800", false, "開");
+    try svg::text(allocator, out, xs[1], 144.0, 48.0, "middle", "var(--ink)", "800", false, "発");
+    try svg::text(allocator, out, xs[2], 144.0, 48.0, "middle", "var(--ink)", "800", false, "ロ");
+    try svg::text(allocator, out, xs[3], 144.0, 48.0, "middle", "var(--ink)", "800", false, "グ");
+    try svg::text(allocator, out, xs[4], 144.0, 48.0, "middle", "var(--accent)", "800", false, "！");
+
+    try svg::text(allocator, out, 240.0, 206.0, 11.0, "middle", "var(--muted)", "600", true,
+        if kern { "PAIR KERNING ON (約物・カタカナの空きを個別に詰め)" } else { "PAIR KERNING OFF (全文字ベタ組み)" });
+    try svg::end(allocator, out);
+
+    try readout.append_bytes(allocator, "トラッキング ");
+    try svg::append_int(allocator, readout, cast<i64>(svg::clamp_i32(p.p0, -8, 18)));
+    try readout.append_bytes(allocator, " / カーニング ");
+    try readout.append_bytes(allocator, if kern { "ON" } else { "OFF" });
+
+    try hint.append_bytes(allocator, "全体のトラッキングを");
+    try svg::append_int(allocator, hint, cast<i64>(svg::clamp_i32(p.p0, -8, 18)));
+    try hint.append_bytes(allocator, "に調整し、カタカナ・約物のカーニングを");
+    try hint.append_bytes(allocator, if kern { "詰める" } else { "均等にする" });
+    return;
+}
+
+// 8: Whitespace & proximity (p0=group_gap 4..44, p1=borders_off 0:all_boxes 1:proximity_only)
+fn demo_whitespace(
+    allocator: Allocator,
+    p: params::Params,
+    out: &var string::String,
+    readout: &var string::String,
+    hint: &var string::String,
+) -> mem::Error!void {
+    let gap = cast<f64>(svg::clamp_i32(p.p0, 4, 44));
+    let clean = p.p1 != 0;
+
+    try svg::begin(allocator, out, 480, 270);
+    try svg::rect(allocator, out, 0.0, 0.0, 480.0, 270.0, 8.0, "var(--sheet)", "var(--rule)", 1.0);
+
+    let g1_y = 32.0;
+    let item_h = 26.0;
+    let inner_gap = if clean { 6.0 } else { 14.0 };
+    let g2_y = g1_y + item_h * 2.0 + inner_gap + gap + 22.0;
+
+    // Group 1
+    if !clean {
+        try svg::rect(allocator, out, 36.0, g1_y - 6.0, 408.0, 24.0, 4.0, "var(--paper)", "var(--ink)", 1.0);
+        try svg::rect(allocator, out, 36.0, g1_y + 24.0, 408.0, 24.0, 4.0, "var(--paper)", "var(--ink)", 1.0);
+        try svg::rect(allocator, out, 36.0, g1_y + 54.0, 408.0, 24.0, 4.0, "var(--paper)", "var(--ink)", 1.0);
+    }
+    try svg::text(allocator, out, 46.0, g1_y + 11.0, 12.0, "start", "var(--accent)", "700", false, "公開設定");
+    try svg::text(allocator, out, 46.0, g1_y + 11.0 + item_h, 13.0, "start", "var(--ink)", "600", false, "URL スラッグ: domain-words");
+    try svg::text(allocator, out, 46.0, g1_y + 11.0 + item_h * 2.0 + inner_gap * 0.4, 12.0, "start", "var(--muted)", "400", false, "検索エンジンへの公開を許可");
+
+    // Visual spacing bracket between groups
+    let mid_y1 = g1_y + item_h * 2.0 + inner_gap + 10.0;
+    if gap >= 18.0 {
+        try svg::line(allocator, out, 452.0, mid_y1, 452.0, g2_y - 6.0, "var(--accent)", 2.0, "");
+        try svg::text(allocator, out, 444.0, (mid_y1 + g2_y - 6.0) * 0.5 + 4.0, 10.0, "end", "var(--accent)", "700", true, "GAP");
+    }
+
+    // Group 2
+    if !clean {
+        try svg::rect(allocator, out, 36.0, g2_y - 6.0, 408.0, 24.0, 4.0, "var(--paper)", "var(--ink)", 1.0);
+        try svg::rect(allocator, out, 36.0, g2_y + 24.0, 408.0, 24.0, 4.0, "var(--paper)", "var(--ink)", 1.0);
+        try svg::rect(allocator, out, 36.0, g2_y + 54.0, 408.0, 24.0, 4.0, "var(--paper)", "var(--ink)", 1.0);
+    }
+    try svg::text(allocator, out, 46.0, g2_y + 11.0, 12.0, "start", "var(--accent)", "700", false, "通知設定");
+    try svg::text(allocator, out, 46.0, g2_y + 11.0 + item_h, 13.0, "start", "var(--ink)", "600", false, "更新メールを受け取る");
+    try svg::text(allocator, out, 46.0, g2_y + 11.0 + item_h * 2.0 + inner_gap * 0.4, 12.0, "start", "var(--muted)", "400", false, "週1回のダイジェスト配信");
+
+    try svg::end(allocator, out);
+
+    try readout.append_bytes(allocator, "グループ間余白 ");
+    try svg::append_int(allocator, readout, cast<i64>(svg::clamp_i32(p.p0, 4, 44)));
+    try readout.append_bytes(allocator, "px / ");
+    try readout.append_bytes(allocator, if clean { "枠線なし・近接で塊を分離" } else { "全要素に枠線・距離差が弱い" });
+
+    try hint.append_bytes(allocator, "枠線を減らし、関連項目を近づけて別グループとの間に");
+    try svg::append_int(allocator, hint, cast<i64>(svg::clamp_i32(p.p0, 4, 44)));
+    try hint.append_bytes(allocator, "pxの余白を取る");
+    return;
+}
+
+// 9: WCAG Contrast ratio (p0=bg_luma 10..245, p1=fg_luma 10..255, p2=scrim 0..85)
+fn demo_contrast_ratio(
+    allocator: Allocator,
+    p: params::Params,
+    out: &var string::String,
+    readout: &var string::String,
+    hint: &var string::String,
+) -> mem::Error!void {
+    let bg_raw = svg::clamp_i32(p.p0, 10, 245);
+    let fg = svg::clamp_i32(p.p1, 10, 255);
+    let scrim = cast<f64>(svg::clamp_i32(p.p2, 0, 85)) / 100.0;
+
+    // Effective background after black scrim overlay
+    let bg_eff = cast<i32>(math::round<f64>(cast<f64>(bg_raw) * (1.0 - scrim)));
+    let ratio = svg::contrast_ratio(bg_eff, bg_eff, bg_eff, fg, fg, fg);
+
+    var bg_col = string::new(allocator);
+    defer bg_col.deinit(allocator);
+    var fg_col = string::new(allocator);
+    defer fg_col.deinit(allocator);
+    try svg::append_rgb(allocator, &var bg_col, bg_raw, bg_raw, cast<i32>(svg::clamp_i32(bg_raw + 12, 0, 255)));
+    try svg::append_rgb(allocator, &var fg_col, fg, fg, fg);
+
+    let bg_b = bg_col.as_bytes();
+    let fg_b = fg_col.as_bytes();
+    try svg::begin(allocator, out, 480, 270);
+    try svg::rect(allocator, out, 18.0, 18.0, 444.0, 176.0, 10.0, bg_b, "var(--rule)", 1.0);
+    // Photo-like shapes behind scrim
+    try svg::circle(allocator, out, 118.0, 88.0, 48.0, "#ffffff33", "", 0.0);
+    try svg::rect(allocator, out, 286.0, 44.0, 134.0, 124.0, 8.0, "#00000022", "", 0.0);
+
+    // Scrim overlay
+    if scrim > 0.01 {
+        try out.append_bytes(allocator, "<rect x='18' y='18' width='444' height='176' rx='10' fill='#000000' opacity='");
+        try svg::append_f1(allocator, out, scrim);
+        try out.append_bytes(allocator, "'/>");
+    }
+
+    try svg::text(allocator, out, 240.0, 100.0, 32.0, "middle", fg_b, "800", false, "見出しテキスト");
+    try svg::text(allocator, out, 240.0, 136.0, 14.0, "middle", fg_b, "500", false, "背景の上でも読めるか確認する本文サンプル");
+
+    // WCAG score bar
+    try svg::rect(allocator, out, 18.0, 208.0, 444.0, 46.0, 8.0, "var(--sheet)", "var(--rule)", 1.0);
+    try out.append_bytes(allocator, "<text x='36' y='237' font-size='20' fill='var(--ink)' font-weight='800' font-family='var(--mono)'>");
+    try svg::append_fixed1(allocator, out, ratio);
+    try out.append_bytes(allocator, " : 1</text>");
+
+    if ratio >= 7.0 {
+        try svg::badge(allocator, out, 314.0, 219.0, 132.0, 24.0, "#1d7a46", "#ffffff", "WCAG AAA 合格");
+    } else if ratio >= 4.5 {
+        try svg::badge(allocator, out, 314.0, 219.0, 132.0, 24.0, "#2c6ea8", "#ffffff", "WCAG AA 合格");
+    } else if ratio >= 3.0 {
+        try svg::badge(allocator, out, 314.0, 219.0, 132.0, 24.0, "#c87810", "#ffffff", "大文字のみ AA");
+    } else {
+        try svg::badge(allocator, out, 314.0, 219.0, 132.0, 24.0, "#c93424", "#ffffff", "コントラスト不足");
+    }
+    try svg::end(allocator, out);
+
+    try readout.append_bytes(allocator, "コントラスト比 ");
+    try svg::append_fixed1(allocator, readout, ratio);
+    try readout.append_bytes(allocator, ":1 / ");
+    if ratio >= 7.0 { try readout.append_bytes(allocator, "AAA 基準クリア"); }
+    else if ratio >= 4.5 { try readout.append_bytes(allocator, "AA 基準クリア"); }
+    else { try readout.append_bytes(allocator, "本文には不足 (4.5:1未満)"); }
+
+    try hint.append_bytes(allocator, "背景上に暗幕(");
+    try svg::append_int(allocator, hint, cast<i64>(svg::clamp_i32(p.p2, 0, 85)));
+    try hint.append_bytes(allocator, "%)を敷き、コントラスト比を");
+    try svg::append_fixed1(allocator, hint, ratio);
+    try hint.append_bytes(allocator, ":1以上にする");
+    return;
+}
+
+// 10: Eye flow (p0=pattern 0:scattered 1:Z 2:F, p1=show_path 0/1)
+fn demo_eye_flow(
+    allocator: Allocator,
+    p: params::Params,
+    out: &var string::String,
+    readout: &var string::String,
+    hint: &var string::String,
+) -> mem::Error!void {
+    let mode = svg::clamp_i32(p.p0, 0, 2);
+    let show_path = p.p1 != 0;
+
+    try svg::begin(allocator, out, 480, 270);
+    try svg::rect(allocator, out, 20.0, 14.0, 440.0, 242.0, 8.0, "var(--sheet)", "var(--rule)", 1.2);
+
+    if mode == 0 {
+        // Scattered
+        try svg::rect(allocator, out, 286.0, 152.0, 140.0, 44.0, 6.0, "var(--paper)", "var(--rule)", 1.0);
+        try svg::text(allocator, out, 356.0, 179.0, 12.0, "middle", "var(--ink)", "700", false, "ロゴ");
+        try svg::rect(allocator, out, 42.0, 184.0, 112.0, 38.0, 6.0, "var(--accent)", "", 0.0);
+        try svg::text(allocator, out, 98.0, 208.0, 12.0, "middle", "#ffffff", "700", false, "申し込む");
+        try svg::rect(allocator, out, 210.0, 38.0, 210.0, 52.0, 6.0, "var(--paper)", "var(--rule)", 1.0);
+        try svg::text(allocator, out, 315.0, 69.0, 14.0, "middle", "var(--ink)", "800", false, "キャッチコピー");
+        try svg::rect(allocator, out, 48.0, 48.0, 124.0, 96.0, 6.0, "var(--grid)", "", 0.0);
+        try svg::text(allocator, out, 110.0, 100.0, 11.0, "middle", "var(--muted)", "600", false, "補足メモ");
+        if show_path {
+            try out.append_bytes(allocator, "<path d='M 315 64 L 98 202 L 356 174 L 110 96' fill='none' stroke='var(--accent)' stroke-width='2.5' stroke-dasharray='5 4'/>");
+        }
+    } else if mode == 1 {
+        // Z-pattern (Landing page / thumbnail)
+        try svg::rect(allocator, out, 42.0, 32.0, 124.0, 32.0, 5.0, "var(--ink)", "", 0.0);
+        try svg::text(allocator, out, 104.0, 52.0, 12.0, "middle", "var(--paper)", "700", false, "1 ロゴ・主題");
+        try svg::rect(allocator, out, 304.0, 32.0, 134.0, 32.0, 5.0, "var(--paper)", "var(--rule)", 1.0);
+        try svg::text(allocator, out, 371.0, 52.0, 12.0, "middle", "var(--ink)", "600", false, "2 要点・実績");
+        try svg::rect(allocator, out, 42.0, 114.0, 224.0, 112.0, 6.0, "var(--grid)", "", 0.0);
+        try svg::text(allocator, out, 154.0, 174.0, 13.0, "middle", "var(--ink)", "700", false, "3 ビジュアル・詳細");
+        try svg::rect(allocator, out, 304.0, 184.0, 134.0, 42.0, 6.0, "var(--accent)", "", 0.0);
+        try svg::text(allocator, out, 371.0, 210.0, 13.0, "middle", "#ffffff", "800", false, "4 行動ボタン");
+        if show_path {
+            try out.append_bytes(allocator, "<path d='M 86 48 L 386 48 L 120 186 L 378 205' fill='none' stroke='var(--accent)' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/>");
+            try svg::circle(allocator, out, 86.0, 48.0, 6.0, "var(--accent)", "", 0.0);
+            try svg::circle(allocator, out, 386.0, 48.0, 6.0, "var(--accent)", "", 0.0);
+            try svg::circle(allocator, out, 120.0, 186.0, 6.0, "var(--accent)", "", 0.0);
+            try svg::circle(allocator, out, 378.0, 205.0, 7.0, "var(--accent)", "#ffffff", 2.0);
+        }
+    } else {
+        // F-pattern (Article / list)
+        try svg::rect(allocator, out, 42.0, 34.0, 396.0, 34.0, 5.0, "var(--ink)", "", 0.0);
+        try svg::text(allocator, out, 56.0, 56.0, 13.0, "start", "var(--paper)", "700", false, "1 一番上にタイトルと結論");
+        try svg::rect(allocator, out, 42.0, 90.0, 304.0, 28.0, 5.0, "var(--paper)", "var(--rule)", 1.0);
+        try svg::text(allocator, out, 56.0, 108.0, 12.0, "start", "var(--ink)", "600", false, "2 小見出しと先頭フレーズ");
+        try svg::rect(allocator, out, 42.0, 134.0, 224.0, 24.0, 5.0, "var(--grid)", "", 0.0);
+        try svg::rect(allocator, out, 42.0, 172.0, 194.0, 24.0, 5.0, "var(--grid)", "", 0.0);
+        try svg::rect(allocator, out, 42.0, 210.0, 150.0, 24.0, 5.0, "var(--grid)", "", 0.0);
+        if show_path {
+            try out.append_bytes(allocator, "<path d='M 58 51 L 418 51 M 58 51 L 58 222 M 58 104 L 328 104' fill='none' stroke='var(--accent)' stroke-width='3' stroke-linecap='round'/>");
+        }
+    }
+    try svg::end(allocator, out);
+
+    if mode == 0 {
+        try readout.append_bytes(allocator, "視線が交差して迷子になる配置");
+        try hint.append_bytes(allocator, "左上から右下へ抜けるZ型視線誘導に整理する");
+    } else if mode == 1 {
+        try readout.append_bytes(allocator, "Z型視線誘導 / サムネ・LP向き (最後にCTA)");
+        try hint.append_bytes(allocator, "左上主題→右上要点→左下ビジュアル→右下CTAのZ型視線誘導");
+    } else {
+        try readout.append_bytes(allocator, "F型視線誘導 / 一覧・記事向き (左端に重要語)");
+        try hint.append_bytes(allocator, "左端に見出しと重要語を揃えるF型視線誘導");
+    }
+    return;
+}
+
+// 11: Color ratio 70:25:5 (p0=accent_pct 2..45, p1=preset 0:ideal 1:even_chaos 2:custom)
+fn demo_color_ratio(
+    allocator: Allocator,
+    p: params::Params,
+    out: &var string::String,
+    readout: &var string::String,
+    hint: &var string::String,
+) -> mem::Error!void {
+    let mode = svg::clamp_i32(p.p1, 0, 2);
+    var accent_pct = svg::clamp_i32(p.p0, 2, 45);
+    var main_pct: i32 = 25;
+    var base_pct: i32 = 70;
+    if mode == 0 {
+        base_pct = 70;
+        main_pct = 25;
+        accent_pct = 5;
+    } else if mode == 1 {
+        base_pct = 34;
+        main_pct = 33;
+        accent_pct = 33;
+    } else {
+        main_pct = svg::clamp_i32((100 - accent_pct) / 3, 10, 45);
+        base_pct = 100 - main_pct - accent_pct;
+    }
+
+    try svg::begin(allocator, out, 480, 270);
+    // Mock card layout driven by ratio
+    try svg::rect(allocator, out, 18.0, 14.0, 444.0, 186.0, 8.0, "#f2f0e9", "var(--rule)", 1.2);
+    // Main color block scales with main_pct
+    let main_w = 4.44 * cast<f64>(main_pct);
+    try svg::rect(allocator, out, 18.0, 14.0, main_w, 186.0, 8.0, "#243447", "", 0.0);
+    try svg::text(allocator, out, 32.0, 44.0, 12.0, "start", "#f2f0e9", "700", false, "メイン領域");
+
+    // Accent block(s) scale with accent_pct
+    if accent_pct <= 10 {
+        try svg::rect(allocator, out, 332.0, 148.0, 108.0, 34.0, 6.0, "#ff4d00", "", 0.0);
+        try svg::text(allocator, out, 386.0, 170.0, 12.0, "middle", "#ffffff", "800", false, "主ボタン");
+    } else {
+        let acc_h = svg::clamp_f64(cast<f64>(accent_pct) * 3.2, 34.0, 130.0);
+        try svg::rect(allocator, out, 224.0, 34.0, 218.0, acc_h, 6.0, "#ff4d00", "", 0.0);
+        try svg::text(allocator, out, 333.0, 34.0 + acc_h * 0.55, 13.0, "middle", "#ffffff", "800", false, "強調色が多すぎて埋没");
+    }
+    try svg::rect(allocator, out, 224.0, 172.0, 92.0, 10.0, 3.0, "#cfccc0", "", 0.0);
+
+    // Ratio bar at bottom
+    let bw = 4.44 * cast<f64>(base_pct);
+    let mw = 4.44 * cast<f64>(main_pct);
+    let aw = 444.0 - bw - mw;
+    try svg::rect(allocator, out, 18.0, 216.0, bw, 24.0, 0.0, "#e5e2d8", "var(--rule)", 1.0);
+    try svg::rect(allocator, out, 18.0 + bw, 216.0, mw, 24.0, 0.0, "#243447", "", 0.0);
+    try svg::rect(allocator, out, 18.0 + bw + mw, 216.0, aw, 24.0, 0.0, "#ff4d00", "", 0.0);
+    try svg::text(allocator, out, 24.0, 256.0, 11.0, "start", "var(--muted)", "700", true, "BASE / MAIN / ACCENT");
+    try svg::end(allocator, out);
+
+    try readout.append_bytes(allocator, "配分 ");
+    try svg::append_int(allocator, readout, cast<i64>(base_pct));
+    try readout.append_bytes(allocator, " : ");
+    try svg::append_int(allocator, readout, cast<i64>(main_pct));
+    try readout.append_bytes(allocator, " : ");
+    try svg::append_int(allocator, readout, cast<i64>(accent_pct));
+    if accent_pct <= 10 and base_pct >= 60 {
+        try readout.append_bytes(allocator, " (主ボタンが際立つ)");
+    } else {
+        try readout.append_bytes(allocator, " (色が競合しやすい)");
+    }
+
+    try hint.append_bytes(allocator, "配色比率をベース");
+    try svg::append_int(allocator, hint, cast<i64>(base_pct));
+    try hint.append_bytes(allocator, "%・メイン");
+    try svg::append_int(allocator, hint, cast<i64>(main_pct));
+    try hint.append_bytes(allocator, "%・アクセント");
+    try svg::append_int(allocator, hint, cast<i64>(accent_pct));
+    try hint.append_bytes(allocator, "%にする");
+    return;
+}

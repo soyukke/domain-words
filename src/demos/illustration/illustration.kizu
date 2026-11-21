@@ -1,0 +1,592 @@
+// Category 0: Illustration demos (IDs 0..5).
+import domain_words::demos::params;
+import domain_words::svg;
+import std::math;
+import std::mem;
+import std::string;
+
+pub fn render(
+    allocator: Allocator,
+    word_id: i32,
+    p: params::Params,
+    out_svg: &var string::String,
+    out_readout: &var string::String,
+    out_hint: &var string::String,
+) -> mem::Error!void {
+    if word_id == 0 {
+        try demo_rim_light(allocator, p, out_svg, out_readout, out_hint);
+    } else if word_id == 1 {
+        try demo_aerial_perspective(allocator, p, out_svg, out_readout, out_hint);
+    } else if word_id == 2 {
+        try demo_camera_angle(allocator, p, out_svg, out_readout, out_hint);
+    } else if word_id == 3 {
+        try demo_silhouette(allocator, p, out_svg, out_readout, out_hint);
+    } else if word_id == 4 {
+        try demo_value_contrast(allocator, p, out_svg, out_readout, out_hint);
+    } else {
+        try demo_rule_of_thirds(allocator, p, out_svg, out_readout, out_hint);
+    }
+    return;
+}
+
+// 0: Rim light (p0=strength 0..100, p1=side 0:right 1:left 2:top, p2=warmth 0:cool 1:warm)
+fn demo_rim_light(
+    allocator: Allocator,
+    p: params::Params,
+    out: &var string::String,
+    readout: &var string::String,
+    hint: &var string::String,
+) -> mem::Error!void {
+    let strength = cast<f64>(svg::clamp_i32(p.p0, 0, 100)) / 100.0;
+    let side = svg::clamp_i32(p.p1, 0, 2);
+    let warm = p.p2 != 0;
+
+    try svg::begin(allocator, out, 480, 270);
+    // Deep night background
+    try out.append_bytes(allocator, "<defs><radialGradient id='bg' cx='");
+    if side == 0 { try out.append_bytes(allocator, "78%' cy='36%'"); }
+    else if side == 1 { try out.append_bytes(allocator, "22%' cy='36%'"); }
+    else { try out.append_bytes(allocator, "50%' cy='14%'"); }
+    try out.append_bytes(allocator, " r='68%'><stop offset='0%' stop-color='");
+    if warm {
+        try svg::append_rgb_lerp(allocator, out, 34, 34, 42, 118, 62, 30, strength * 0.85);
+    } else {
+        try svg::append_rgb_lerp(allocator, out, 34, 34, 42, 34, 88, 128, strength * 0.85);
+    }
+    try out.append_bytes(allocator, "'/><stop offset='100%' stop-color='#191a20'/></radialGradient></defs>");
+    try svg::rect(allocator, out, 0.0, 0.0, 480.0, 270.0, 8.0, "url(#bg)", "", 0.0);
+
+    // Subtle background pillars (similar dark tone to character so without rim light it merges)
+    try svg::rect(allocator, out, 44.0, 24.0, 56.0, 222.0, 2.0, "#23252d", "", 0.0);
+    try svg::rect(allocator, out, 376.0, 32.0, 62.0, 214.0, 2.0, "#23252d", "", 0.0);
+    try svg::rect(allocator, out, 148.0, 52.0, 184.0, 194.0, 2.0, "#22242c", "", 0.0);
+
+    // Light source marker
+    var lx = 398.0;
+    var ly = 68.0;
+    if side == 1 { lx = 82.0; ly = 68.0; }
+    else if side == 2 { lx = 240.0; ly = 28.0; }
+
+    var rim_col = string::new(allocator);
+    defer rim_col.deinit(allocator);
+    if warm {
+        try svg::append_rgb_lerp(allocator, &var rim_col, 42, 44, 52, 255, 166, 92, strength);
+    } else {
+        try svg::append_rgb_lerp(allocator, &var rim_col, 42, 44, 52, 120, 224, 255, strength);
+    }
+    let rim_b = rim_col.as_bytes();
+    if strength > 0.05 {
+        try svg::circle(allocator, out, lx, ly, 10.0 + strength * 8.0, rim_b, "", 0.0);
+        try svg::line(allocator, out, lx, ly, 240.0, 130.0, rim_b, 1.2, "4 4");
+    }
+
+    // Rim halo behind character shifted toward light side
+    var ox = 4.0;
+    var oy = -1.5;
+    if side == 1 { ox = -4.0; oy = -1.5; }
+    else if side == 2 { ox = 0.0; oy = -4.2; }
+
+    if strength > 0.02 {
+        let rim_w = 2.0 + strength * 4.5;
+        try out.append_bytes(allocator, "<g opacity='");
+        try svg::append_f1(allocator, out, 0.2 + strength * 0.8);
+        try out.append_bytes(allocator, "'>");
+        // Head rim
+        try svg::circle(allocator, out, 240.0 + ox * strength, 102.0 + oy * strength, 38.0 + rim_w * 0.35, rim_b, "", 0.0);
+        // Shoulders & cape rim
+        try out.append_bytes(allocator, "<path d='M ");
+        try svg::append_f1(allocator, out, 166.0 + ox * strength);
+        try out.append_bytes(allocator, " 246 Q ");
+        try svg::append_f1(allocator, out, 180.0 + ox * strength);
+        try out.append_bytes(allocator, " 152 ");
+        try svg::append_f1(allocator, out, 240.0 + ox * strength);
+        try out.append_bytes(allocator, " 148 Q ");
+        try svg::append_f1(allocator, out, 300.0 + ox * strength);
+        try out.append_bytes(allocator, " 152 ");
+        try svg::append_f1(allocator, out, 314.0 + ox * strength);
+        try out.append_bytes(allocator, " 246 Z' fill='");
+        try out.append_bytes(allocator, rim_b);
+        try out.append_bytes(allocator, "'/></g>");
+    }
+
+    // Character silhouette (dark, close to background value)
+    try svg::circle(allocator, out, 240.0, 102.0, 38.0, "#272a34", "", 0.0);
+    try out.append_bytes(allocator, "<path d='M 166 246 Q 180 152 240 148 Q 300 152 314 246 Z' fill='#272a34'/>");
+    // Hair tuft & collar silhouette detail
+    try out.append_bytes(allocator, "<path d='M 212 72 L 228 54 L 246 66 L 268 58 L 274 84 Z' fill='#272a34'/>");
+
+    // Crisp rim edge highlight stroke on lit edge
+    if strength > 0.05 {
+        try out.append_bytes(allocator, "<path d='");
+        if side == 0 {
+            try out.append_bytes(allocator, "M 250 65 A 38 38 0 0 1 273 122 M 266 154 Q 297 166 310 242");
+        } else if side == 1 {
+            try out.append_bytes(allocator, "M 230 65 A 38 38 0 0 0 207 122 M 214 154 Q 183 166 170 242");
+        } else {
+            try out.append_bytes(allocator, "M 205 90 A 38 38 0 0 1 275 90 M 192 162 Q 240 146 288 162");
+        }
+        try out.append_bytes(allocator, "' fill='none' stroke='");
+        try out.append_bytes(allocator, rim_b);
+        try out.append_bytes(allocator, "' stroke-width='");
+        try svg::append_f1(allocator, out, 1.4 + strength * 2.8);
+        try out.append_bytes(allocator, "' stroke-linecap='round'/>");
+    }
+
+    // Separation indicator
+    let sep = cast<i64>(math::round<f64>(18.0 + strength * 82.0));
+    try svg::text(allocator, out, 16.0, 252.0, 11.0, "start", "#b9b8b0", "600", true, "SEPARATION ");
+    try svg::rect(allocator, out, 102.0, 243.0, 90.0, 8.0, 4.0, "#353742", "", 0.0);
+    try svg::rect(allocator, out, 102.0, 243.0, 0.9 * cast<f64>(sep), 8.0, 4.0, rim_b, "", 0.0);
+    try svg::end(allocator, out);
+
+    try readout.append_bytes(allocator, "強さ ");
+    try svg::append_int(allocator, readout, cast<i64>(svg::clamp_i32(p.p0, 0, 100)));
+    try readout.append_bytes(allocator, "% / 分離度 ");
+    try svg::append_int(allocator, readout, sep);
+    try readout.append_bytes(allocator, "%");
+
+    if side == 0 { try hint.append_bytes(allocator, "右後ろから"); }
+    else if side == 1 { try hint.append_bytes(allocator, "左後ろから"); }
+    else { try hint.append_bytes(allocator, "真上から"); }
+    if warm { try hint.append_bytes(allocator, "暖色の"); } else { try hint.append_bytes(allocator, "寒色の"); }
+    try hint.append_bytes(allocator, "リムライト(強さ");
+    try svg::append_int(allocator, hint, cast<i64>(svg::clamp_i32(p.p0, 0, 100)));
+    try hint.append_bytes(allocator, "%)");
+    return;
+}
+
+// 1: Aerial perspective (p0=haze 0..100, p1=time 0:day 1:sunset)
+fn demo_aerial_perspective(
+    allocator: Allocator,
+    p: params::Params,
+    out: &var string::String,
+    readout: &var string::String,
+    hint: &var string::String,
+) -> mem::Error!void {
+    let haze = cast<f64>(svg::clamp_i32(p.p0, 0, 100)) / 100.0;
+    let sunset = p.p1 != 0;
+
+    var sky_r: i32 = 194;
+    var sky_g: i32 = 216;
+    var sky_b: i32 = 236;
+    if sunset {
+        sky_r = 236;
+        sky_g = 174;
+        sky_b = 142;
+    }
+
+    var sky_top = string::new(allocator);
+    defer sky_top.deinit(allocator);
+    var sky_bot = string::new(allocator);
+    defer sky_bot.deinit(allocator);
+    if sunset {
+        try svg::append_rgb(allocator, &var sky_top, 118, 92, 132);
+        try svg::append_rgb(allocator, &var sky_bot, sky_r, sky_g, sky_b);
+    } else {
+        try svg::append_rgb(allocator, &var sky_top, 122, 168, 214);
+        try svg::append_rgb(allocator, &var sky_bot, sky_r, sky_g, sky_b);
+    }
+
+    var far_c = string::new(allocator);
+    defer far_c.deinit(allocator);
+    var mid_c = string::new(allocator);
+    defer mid_c.deinit(allocator);
+    var near_c = string::new(allocator);
+    defer near_c.deinit(allocator);
+
+    try svg::append_rgb_lerp(allocator, &var far_c, 42, 68, 52, sky_r, sky_g, sky_b, haze * 0.86);
+    try svg::append_rgb_lerp(allocator, &var mid_c, 36, 62, 48, sky_r, sky_g, sky_b, haze * 0.48);
+    try svg::append_rgb_lerp(allocator, &var near_c, 28, 44, 36, sky_r, sky_g, sky_b, haze * 0.08);
+
+    let sky_top_b = sky_top.as_bytes();
+    let sky_bot_b = sky_bot.as_bytes();
+    let far_b = far_c.as_bytes();
+    let mid_b = mid_c.as_bytes();
+    let near_b = near_c.as_bytes();
+
+    try svg::begin(allocator, out, 480, 270);
+    try out.append_bytes(allocator, "<defs><linearGradient id='sky' x1='0' y1='0' x2='0' y2='1'><stop offset='0%' stop-color='");
+    try out.append_bytes(allocator, sky_top_b);
+    try out.append_bytes(allocator, "'/><stop offset='100%' stop-color='");
+    try out.append_bytes(allocator, sky_bot_b);
+    try out.append_bytes(allocator, "'/></linearGradient></defs>");
+    try svg::rect(allocator, out, 0.0, 0.0, 480.0, 270.0, 8.0, "url(#sky)", "", 0.0);
+
+    // Far mountains
+    try out.append_bytes(allocator, "<path d='M 0 180 L 70 96 L 152 140 L 236 78 L 328 134 L 410 88 L 480 144 L 480 270 L 0 270 Z' fill='");
+    try out.append_bytes(allocator, far_b);
+    try out.append_bytes(allocator, "'/>");
+
+    // Mid hills + tower
+    try out.append_bytes(allocator, "<path d='M 0 202 Q 96 146 196 184 T 390 166 L 480 192 L 480 270 L 0 270 Z' fill='");
+    try out.append_bytes(allocator, mid_b);
+    try out.append_bytes(allocator, "'/>");
+    try svg::rect(allocator, out, 284.0, 128.0, 14.0, 50.0, 1.0, mid_b, "", 0.0);
+    try out.append_bytes(allocator, "<polygon points='281,128 291,114 301,128' fill='");
+    try out.append_bytes(allocator, mid_b);
+    try out.append_bytes(allocator, "'/>");
+
+    // Near foreground ridge + trees
+    try out.append_bytes(allocator, "<path d='M 0 226 Q 130 198 242 232 T 480 218 L 480 270 L 0 270 Z' fill='");
+    try out.append_bytes(allocator, near_b);
+    try out.append_bytes(allocator, "'/>");
+    try out.append_bytes(allocator, "<polygon points='58,224 76,162 94,224' fill='");
+    try out.append_bytes(allocator, near_b);
+    try out.append_bytes(allocator, "'/><polygon points='84,228 100,178 116,228' fill='");
+    try out.append_bytes(allocator, near_b);
+    try out.append_bytes(allocator, "'/>");
+
+    // Layer labels
+    try svg::badge(allocator, out, 16.0, 16.0, 56.0, 20.0, "#141412cc", "#f2f0e9", "遠景");
+    try svg::line(allocator, out, 72.0, 26.0, 218.0, 96.0, "#14141288", 1.0, "3 3");
+    try svg::badge(allocator, out, 392.0, 16.0, 72.0, 20.0, "#141412cc", "#f2f0e9", "霞 ");
+    try svg::text(allocator, out, 444.0, 29.0, 11.0, "middle", "#ff7a3d", "700", true, "");
+
+    try svg::end(allocator, out);
+
+    try readout.append_bytes(allocator, "霞 ");
+    try svg::append_int(allocator, readout, cast<i64>(svg::clamp_i32(p.p0, 0, 100)));
+    try readout.append_bytes(allocator, "% / 遠景の彩度・コントラスト減衰");
+
+    try hint.append_bytes(allocator, "遠景ほど");
+    if sunset { try hint.append_bytes(allocator, "夕景の空色"); } else { try hint.append_bytes(allocator, "空色"); }
+    try hint.append_bytes(allocator, "に馴染ませる空気遠近法(霞");
+    try svg::append_int(allocator, hint, cast<i64>(svg::clamp_i32(p.p0, 0, 100)));
+    try hint.append_bytes(allocator, "%)");
+    return;
+}
+
+// 2: Camera angle (p0=angle -100..100: negative=aori/low, 0=eye, positive=fukan/high, p1=show_guide 0/1)
+fn demo_camera_angle(
+    allocator: Allocator,
+    p: params::Params,
+    out: &var string::String,
+    readout: &var string::String,
+    hint: &var string::String,
+) -> mem::Error!void {
+    let ang = svg::clamp_i32(p.p0, -100, 100);
+    let t = cast<f64>(ang) / 100.0; // -1 = low angle (aori), +1 = high angle (fukan)
+    let show_guide = p.p1 != 0;
+
+    // Horizon Y moves down in low angle, up in high angle
+    let horizon_y = 140.0 - t * 88.0;
+
+    try svg::begin(allocator, out, 480, 270);
+    try svg::rect(allocator, out, 0.0, 0.0, 480.0, horizon_y, 0.0, "var(--paper)", "", 0.0);
+    try svg::rect(allocator, out, 0.0, horizon_y, 480.0, 270.0 - horizon_y, 0.0, "var(--grid)", "", 0.0);
+
+    // Perspective floor lines radiating from center on horizon
+    for 0..9 |i| {
+        let fx = -80.0 + cast<f64>(i) * 80.0;
+        try svg::line(allocator, out, 240.0, horizon_y, fx, 270.0, "var(--rule)", 1.0, "");
+    }
+    // Horizontal depth lines
+    for 1..5 |k| {
+        let frac = cast<f64>(k) / 5.0;
+        let gy = horizon_y + (270.0 - horizon_y) * frac * frac;
+        try svg::line(allocator, out, 0.0, gy, 480.0, gy, "var(--rule)", 1.0, "");
+    }
+
+    // Subject box/monolith whose top/bottom taper with angle
+    let top_w = 64.0 - t * 22.0; // wider in high angle? Actually in low angle top converges narrower!
+    let top_half = 36.0 + t * 18.0;
+    let bot_half = 44.0 - t * 14.0;
+    let top_y = 48.0 + t * 34.0;
+    let bot_y = 228.0 + t * 12.0;
+    let _ = top_w;
+
+    // Shadow
+    try out.append_bytes(allocator, "<ellipse cx='240' cy='");
+    try svg::append_f1(allocator, out, bot_y + 4.0);
+    try out.append_bytes(allocator, "' rx='");
+    try svg::append_f1(allocator, out, bot_half * 1.25);
+    try out.append_bytes(allocator, "' ry='10' fill='var(--rule)'/>");
+
+    // Figure / monolith silhouette with foreshortening
+    try out.append_bytes(allocator, "<polygon points='");
+    try svg::append_f1(allocator, out, 240.0 - top_half);
+    try out.append_bytes(allocator, ",");
+    try svg::append_f1(allocator, out, top_y + 42.0);
+    try out.append_bytes(allocator, " ");
+    try svg::append_f1(allocator, out, 240.0 + top_half);
+    try out.append_bytes(allocator, ",");
+    try svg::append_f1(allocator, out, top_y + 42.0);
+    try out.append_bytes(allocator, " ");
+    try svg::append_f1(allocator, out, 240.0 + bot_half);
+    try out.append_bytes(allocator, ",");
+    try svg::append_f1(allocator, out, bot_y);
+    try out.append_bytes(allocator, " ");
+    try svg::append_f1(allocator, out, 240.0 - bot_half);
+    try out.append_bytes(allocator, ",");
+    try svg::append_f1(allocator, out, bot_y);
+    try out.append_bytes(allocator, "' fill='var(--ink)'/>");
+
+    // Head (bigger in high angle, smaller and higher in low angle)
+    let head_r = 22.0 + t * 7.0;
+    try svg::circle(allocator, out, 240.0, top_y + 22.0, head_r, "var(--ink)", "var(--paper)", 2.0);
+    // Eyes line on head shifts vertically with angle
+    let eye_y = top_y + 22.0 - t * 6.0;
+    try svg::line(allocator, out, 240.0 - head_r * 0.55, eye_y, 240.0 + head_r * 0.55, eye_y, "var(--accent)", 2.5, "");
+
+    if show_guide {
+        try svg::line(allocator, out, 0.0, horizon_y, 480.0, horizon_y, "var(--accent)", 1.5, "6 4");
+        try svg::badge(allocator, out, 12.0, svg::clamp_f64(horizon_y - 24.0, 8.0, 236.0), 116.0, 20.0, "var(--accent)", "#ffffff", "EYE LEVEL");
+    }
+
+    // Impression tag
+    if ang < -25 {
+        try svg::badge(allocator, out, 344.0, 14.0, 122.0, 24.0, "var(--ink)", "var(--paper)", "アオリ 威圧・巨大");
+    } else if ang > 25 {
+        try svg::badge(allocator, out, 344.0, 14.0, 122.0, 24.0, "var(--ink)", "var(--paper)", "俯瞰 状況・広がり");
+    } else {
+        try svg::badge(allocator, out, 344.0, 14.0, 122.0, 24.0, "var(--ink)", "var(--paper)", "アイレベル 親近感");
+    }
+    try svg::end(allocator, out);
+
+    if ang < -25 {
+        try readout.append_bytes(allocator, "アオリ (低カメラ) / 見上げ・威圧感");
+        try hint.append_bytes(allocator, "アイレベルを低くした強いアオリ構図");
+    } else if ang > 25 {
+        try readout.append_bytes(allocator, "俯瞰 (高カメラ) / 状況説明・広がり");
+        try hint.append_bytes(allocator, "上から見下ろす俯瞰構図");
+    } else {
+        try readout.append_bytes(allocator, "アイレベル (目線) / 等身大・自然");
+        try hint.append_bytes(allocator, "キャラと同じ高さのアイレベル構図");
+    }
+    return;
+}
+
+// 3: Silhouette readability (p0=pose 0:closed/NG 1:open/OK, p1=blackout 0:color 1:silhouette)
+fn demo_silhouette(
+    allocator: Allocator,
+    p: params::Params,
+    out: &var string::String,
+    readout: &var string::String,
+    hint: &var string::String,
+) -> mem::Error!void {
+    let good = p.p0 != 0;
+    let black = p.p1 != 0;
+
+    try svg::begin(allocator, out, 480, 270);
+    try svg::rect(allocator, out, 0.0, 0.0, 480.0, 270.0, 8.0, "var(--sheet)", "var(--rule)", 1.0);
+
+    let body_fill = if black { "var(--ink)" } else { "#3b5978" };
+    let head_fill = if black { "var(--ink)" } else { "#e6b89c" };
+    let weapon_fill = if black { "var(--ink)" } else { "#ff4d00" };
+    let cape_fill = if black { "var(--ink)" } else { "#5d436e" };
+
+    if !good {
+        // Clumped pose: sword & arm tucked inside torso silhouette
+        try out.append_bytes(allocator, "<path d='M 204 106 L 276 106 L 284 226 L 196 226 Z' fill='");
+        try out.append_bytes(allocator, cape_fill);
+        try out.append_bytes(allocator, "'/>");
+        try svg::rect(allocator, out, 212.0, 106.0, 56.0, 92.0, 14.0, body_fill, "", 0.0);
+        try svg::circle(allocator, out, 240.0, 74.0, 26.0, head_fill, "", 0.0);
+        // Arm & sword overlapping torso
+        try svg::rect(allocator, out, 224.0, 118.0, 18.0, 56.0, 8.0, head_fill, "", 0.0);
+        try svg::rect(allocator, out, 232.0, 96.0, 10.0, 92.0, 3.0, weapon_fill, "", 0.0);
+        // Legs close together
+        try svg::rect(allocator, out, 218.0, 194.0, 18.0, 52.0, 6.0, body_fill, "", 0.0);
+        try svg::rect(allocator, out, 242.0, 194.0, 18.0, 52.0, 6.0, body_fill, "", 0.0);
+    } else {
+        // Clear open action pose: clear negative spaces between torso, arms, legs, weapon
+        try out.append_bytes(allocator, "<path d='M 218 112 L 154 156 L 176 202 L 222 152 Z' fill='");
+        try out.append_bytes(allocator, cape_fill);
+        try out.append_bytes(allocator, "'/>");
+        // Leaning torso
+        try out.append_bytes(allocator, "<polygon points='216,104 256,100 264,178 220,180' fill='");
+        try out.append_bytes(allocator, body_fill);
+        try out.append_bytes(allocator, "'/>");
+        try svg::circle(allocator, out, 244.0, 74.0, 25.0, head_fill, "", 0.0);
+        // Extended sword arm out to clear space
+        try svg::line(allocator, out, 256.0, 114.0, 316.0, 92.0, head_fill, 14.0, "");
+        try svg::line(allocator, out, 312.0, 94.0, 386.0, 50.0, weapon_fill, 9.0, "");
+        try svg::line(allocator, out, 304.0, 78.0, 326.0, 108.0, weapon_fill, 6.0, "");
+        // Back balancing arm
+        try svg::line(allocator, out, 218.0, 114.0, 162.0, 134.0, head_fill, 13.0, "");
+        // Wide stride legs
+        try svg::line(allocator, out, 228.0, 178.0, 188.0, 244.0, body_fill, 16.0, "");
+        try svg::line(allocator, out, 254.0, 176.0, 294.0, 242.0, body_fill, 16.0, "");
+    }
+
+    // Small thumbnail check on right corner (how it reads at icon size)
+    try svg::rect(allocator, out, 404.0, 194.0, 62.0, 62.0, 6.0, "var(--paper)", "var(--rule)", 1.0);
+    try svg::text(allocator, out, 435.0, 210.0, 9.0, "middle", "var(--muted)", "700", true, "SMALL");
+    if !good {
+        try svg::rect(allocator, out, 426.0, 218.0, 18.0, 32.0, 4.0, "var(--ink)", "", 0.0);
+    } else {
+        try svg::circle(allocator, out, 435.0, 224.0, 4.5, "var(--ink)", "", 0.0);
+        try svg::line(allocator, out, 435.0, 229.0, 453.0, 219.0, "var(--ink)", 2.5, "");
+        try svg::line(allocator, out, 435.0, 232.0, 421.0, 238.0, "var(--ink)", 2.5, "");
+        try svg::line(allocator, out, 433.0, 236.0, 425.0, 250.0, "var(--ink)", 3.0, "");
+        try svg::line(allocator, out, 437.0, 236.0, 446.0, 250.0, "var(--ink)", 3.0, "");
+    }
+
+    if good {
+        try svg::badge(allocator, out, 16.0, 16.0, 134.0, 24.0, "var(--accent)", "#ffffff", "抜けあり 判別OK");
+    } else {
+        try svg::badge(allocator, out, 16.0, 16.0, 148.0, 24.0, "var(--ink)", "var(--paper)", "重なり多く塊に見える");
+    }
+    try svg::end(allocator, out);
+
+    if good {
+        try readout.append_bytes(allocator, "腕・武器・脚が抜けて黒1色でも動作が読める");
+        try hint.append_bytes(allocator, "黒一色にしても動作が分かる抜けたシルエット");
+    } else {
+        try readout.append_bytes(allocator, "武器と腕が胴体に重なり、黒1色だと塊になる");
+        try hint.append_bytes(allocator, "胴体と武器が重ならないシルエットへ改善");
+    }
+    return;
+}
+
+// 4: Value & saturation contrast (p0=bg_restraint 0..100, p1=grayscale 0/1)
+fn demo_value_contrast(
+    allocator: Allocator,
+    p: params::Params,
+    out: &var string::String,
+    readout: &var string::String,
+    hint: &var string::String,
+) -> mem::Error!void {
+    let restraint = cast<f64>(svg::clamp_i32(p.p0, 0, 100)) / 100.0;
+    let gray = p.p1 != 0;
+
+    // Background tiles start noisy/saturated and calm down as restraint rises
+    var bg1 = string::new(allocator);
+    defer bg1.deinit(allocator);
+    var bg2 = string::new(allocator);
+    defer bg2.deinit(allocator);
+    var bg3 = string::new(allocator);
+    defer bg3.deinit(allocator);
+    var hero = string::new(allocator);
+    defer hero.deinit(allocator);
+    var halo = string::new(allocator);
+    defer halo.deinit(allocator);
+
+    if gray {
+        let g1 = cast<i32>(math::round<f64>(svg::lerp(220.0, 96.0, restraint)));
+        let g2 = cast<i32>(math::round<f64>(svg::lerp(42.0, 84.0, restraint)));
+        let g3 = cast<i32>(math::round<f64>(svg::lerp(186.0, 102.0, restraint)));
+        try svg::append_rgb(allocator, &var bg1, g1, g1, g1);
+        try svg::append_rgb(allocator, &var bg2, g2, g2, g2);
+        try svg::append_rgb(allocator, &var bg3, g3, g3, g3);
+        try svg::append_rgb(allocator, &var hero, 246, 246, 246);
+        try svg::append_rgb(allocator, &var halo, 26, 26, 26);
+    } else {
+        try svg::append_rgb_lerp(allocator, &var bg1, 245, 76, 112, 86, 94, 108, restraint);
+        try svg::append_rgb_lerp(allocator, &var bg2, 26, 178, 92, 74, 82, 96, restraint);
+        try svg::append_rgb_lerp(allocator, &var bg3, 244, 198, 42, 96, 102, 116, restraint);
+        try svg::append_rgb(allocator, &var hero, 255, 244, 214);
+        try svg::append_rgb(allocator, &var halo, 24, 26, 36);
+    }
+
+    let bg1_b = bg1.as_bytes();
+    let bg2_b = bg2.as_bytes();
+    let bg3_b = bg3.as_bytes();
+    let hero_b = hero.as_bytes();
+    let halo_b = halo.as_bytes();
+
+    try svg::begin(allocator, out, 480, 270);
+    try svg::rect(allocator, out, 0.0, 0.0, 480.0, 270.0, 8.0, bg2_b, "", 0.0);
+    // Background shapes competing for attention when restraint is low
+    try svg::rect(allocator, out, 22.0, 20.0, 116.0, 104.0, 10.0, bg1_b, "", 0.0);
+    try svg::circle(allocator, out, 404.0, 74.0, 52.0, bg3_b, "", 0.0);
+    try svg::rect(allocator, out, 336.0, 154.0, 120.0, 92.0, 10.0, bg1_b, "", 0.0);
+    try svg::circle(allocator, out, 78.0, 206.0, 44.0, bg3_b, "", 0.0);
+
+    // Focal subject in center: strong local dark/light contrast
+    try svg::circle(allocator, out, 240.0, 135.0, 56.0, halo_b, "", 0.0);
+    try svg::circle(allocator, out, 240.0, 122.0, 24.0, hero_b, "", 0.0);
+    try out.append_bytes(allocator, "<path d='M 204 182 Q 240 144 276 182 Z' fill='");
+    try out.append_bytes(allocator, hero_b);
+    try out.append_bytes(allocator, "'/>");
+
+    let focus = cast<i64>(math::round<f64>(24.0 + restraint * 74.0));
+    try svg::badge(allocator, out, 16.0, 16.0, 118.0, 22.0, "#141412cc", "#f2f0e9", if gray { "GRAYSCALE" } else { "COLOR" });
+    try svg::end(allocator, out);
+
+    try readout.append_bytes(allocator, "背景抑制 ");
+    try svg::append_int(allocator, readout, cast<i64>(svg::clamp_i32(p.p0, 0, 100)));
+    try readout.append_bytes(allocator, "% / 主役への集中度 ");
+    try svg::append_int(allocator, readout, focus);
+    try readout.append_bytes(allocator, "%");
+
+    try hint.append_bytes(allocator, "背景の彩度と明度差を");
+    try svg::append_int(allocator, hint, cast<i64>(svg::clamp_i32(p.p0, 0, 100)));
+    try hint.append_bytes(allocator, "%抑え、主役に強い明度コントラストを集める");
+    return;
+}
+
+// 5: Rule of thirds & lead room (p0=layout 0:center 1:thirds_ok 2:thirds_cramped, p1=grid 0/1)
+fn demo_rule_of_thirds(
+    allocator: Allocator,
+    p: params::Params,
+    out: &var string::String,
+    readout: &var string::String,
+    hint: &var string::String,
+) -> mem::Error!void {
+    let mode = svg::clamp_i32(p.p0, 0, 2);
+    let show_grid = p.p1 != 0;
+
+    try svg::begin(allocator, out, 480, 270);
+    try svg::rect(allocator, out, 0.0, 0.0, 480.0, 270.0, 8.0, "var(--sheet)", "var(--rule)", 1.0);
+    // Horizon
+    try svg::rect(allocator, out, 0.0, 180.0, 480.0, 90.0, 0.0, "var(--grid)", "", 0.0);
+
+    var cx = 240.0;
+    var face_dir = -1.0; // -1 looking left, +1 looking right
+    if mode == 1 {
+        cx = 320.0; // right third, looking left into open space
+        face_dir = -1.0;
+    } else if mode == 2 {
+        cx = 368.0; // right edge, looking right into wall (cramped)
+        face_dir = 1.0;
+    }
+
+    // Gaze / lead room arrow
+    let gx = cx + face_dir * 86.0;
+    try svg::line(allocator, out, cx + face_dir * 26.0, 92.0, svg::clamp_f64(gx, 24.0, 468.0), 92.0, "var(--accent)", 2.0, "5 4");
+
+    // Subject
+    try svg::circle(allocator, out, cx, 92.0, 24.0, "var(--ink)", "", 0.0);
+    try out.append_bytes(allocator, "<path d='M ");
+    try svg::append_f1(allocator, out, cx - 34.0);
+    try out.append_bytes(allocator, " 230 Q ");
+    try svg::append_f1(allocator, out, cx);
+    try out.append_bytes(allocator, " 118 ");
+    try svg::append_f1(allocator, out, cx + 34.0);
+    try out.append_bytes(allocator, " 230 Z' fill='var(--ink)'/>");
+    // Facing eye dot
+    try svg::circle(allocator, out, cx + face_dir * 12.0, 90.0, 4.0, "var(--accent)", "", 0.0);
+
+    // Space for title copy in mode 1
+    if mode == 1 {
+        try svg::rect(allocator, out, 36.0, 64.0, 166.0, 62.0, 6.0, "var(--paper)", "var(--rule)", 1.2);
+        try svg::text(allocator, out, 119.0, 92.0, 12.0, "middle", "var(--muted)", "700", false, "視線の先の余白");
+        try svg::text(allocator, out, 119.0, 112.0, 11.0, "middle", "var(--muted)", "400", true, "LEAD ROOM / COPY");
+    }
+
+    if show_grid {
+        try svg::line(allocator, out, 160.0, 0.0, 160.0, 270.0, "var(--accent)", 1.0, "4 4");
+        try svg::line(allocator, out, 320.0, 0.0, 320.0, 270.0, "var(--accent)", 1.0, "4 4");
+        try svg::line(allocator, out, 0.0, 90.0, 480.0, 90.0, "var(--accent)", 1.0, "4 4");
+        try svg::line(allocator, out, 0.0, 180.0, 480.0, 180.0, "var(--accent)", 1.0, "4 4");
+        try svg::circle(allocator, out, 160.0, 90.0, 4.0, "var(--accent)", "", 0.0);
+        try svg::circle(allocator, out, 320.0, 90.0, 4.0, "var(--accent)", "", 0.0);
+        try svg::circle(allocator, out, 160.0, 180.0, 4.0, "var(--accent)", "", 0.0);
+        try svg::circle(allocator, out, 320.0, 180.0, 4.0, "var(--accent)", "", 0.0);
+    }
+
+    try svg::end(allocator, out);
+
+    if mode == 0 {
+        try readout.append_bytes(allocator, "日の丸構図 / 安定するが静的で余白が割れる");
+        try hint.append_bytes(allocator, "三分割法の交点へずらして余白の抜けを作る");
+    } else if mode == 1 {
+        try readout.append_bytes(allocator, "三分割交点＋視線方向の抜け / 広がりと文字領域");
+        try hint.append_bytes(allocator, "三分割法の右交点にキャラを置き、左側に視線の抜ける余白を取る");
+    } else {
+        try readout.append_bytes(allocator, "視線の先が詰まり窮屈 (リードルーム不足)");
+        try hint.append_bytes(allocator, "視線の向く側に広いリードルーム(余白)を確保する");
+    }
+    return;
+}

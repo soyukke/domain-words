@@ -1,0 +1,249 @@
+// WebAssembly browser adapter for domain-words (--target wasm32-browser --emit esm).
+import domain_words::catalog;
+import domain_words::demos;
+import domain_words::demos::params;
+import domain_words::state;
+import std::array;
+import std::mem;
+import std::string;
+
+// read_input slots: 0=catalog TSV, 1=search query UTF-8
+extern "browser" fn read_input(slot: i32, offset: i32, destination: []u8) -> usize
+// give_bytes kinds: 0=search csv, 1=demo svg, 2=readout, 3=prompt hint, 4=pcm f32 LE
+extern "browser" fn give_bytes(kind: i32, data: []u8) -> void
+extern "browser" fn give_error(message: []u8) -> void
+
+pub fn start() -> void {
+    return;
+}
+
+// ---- state machine exports -----------------------------------------------
+
+fn panel_from_i32(v: i32) -> state::PanelTab {
+    if v == 1 { return state::PanelTab::Prompt; }
+    if v == 2 { return state::PanelTab::Compare; }
+    return state::PanelTab::Controls;
+}
+
+fn panel_to_i32(s: state::PanelTab) -> i32 {
+    if s == state::PanelTab::Prompt { return 1; }
+    if s == state::PanelTab::Compare { return 2; }
+    return 0;
+}
+
+fn panel_ev_from_i32(v: i32) -> state::PanelEvent {
+    if v == 1 { return state::PanelEvent::ToPrompt; }
+    if v == 2 { return state::PanelEvent::ToCompare; }
+    if v == 3 { return state::PanelEvent::SelectWord; }
+    return state::PanelEvent::ToControls;
+}
+
+export "browser" fn panel_next(s: i32, ev: i32) -> i32 {
+    return panel_to_i32(state::panel_next(panel_from_i32(s), panel_ev_from_i32(ev)));
+}
+
+fn drawer_from_i32(v: i32) -> state::Drawer {
+    if v == 1 { return state::Drawer::Open; }
+    return state::Drawer::Closed;
+}
+
+fn drawer_to_i32(s: state::Drawer) -> i32 {
+    if s == state::Drawer::Open { return 1; }
+    return 0;
+}
+
+fn drawer_ev_from_i32(v: i32) -> state::DrawerEvent {
+    if v == 1 { return state::DrawerEvent::Close; }
+    if v == 2 { return state::DrawerEvent::Toggle; }
+    if v == 3 { return state::DrawerEvent::PickWord; }
+    if v == 4 { return state::DrawerEvent::Escape; }
+    return state::DrawerEvent::Open;
+}
+
+export "browser" fn drawer_next(s: i32, ev: i32) -> i32 {
+    return drawer_to_i32(state::drawer_next(drawer_from_i32(s), drawer_ev_from_i32(ev)));
+}
+
+fn playback_from_i32(v: i32) -> state::Playback {
+    if v == 1 { return state::Playback::Playing; }
+    return state::Playback::Idle;
+}
+
+fn playback_to_i32(s: state::Playback) -> i32 {
+    if s == state::Playback::Playing { return 1; }
+    return 0;
+}
+
+fn playback_ev_from_i32(v: i32) -> state::PlaybackEvent {
+    if v == 1 { return state::PlaybackEvent::Stop; }
+    if v == 2 { return state::PlaybackEvent::WordChanged; }
+    return state::PlaybackEvent::Play;
+}
+
+export "browser" fn playback_next(s: i32, ev: i32) -> i32 {
+    return playback_to_i32(state::playback_next(playback_from_i32(s), playback_ev_from_i32(ev)));
+}
+
+// ---- metadata exports ----------------------------------------------------
+
+export "browser" fn total_words() -> i32 {
+    return demos::total_words();
+}
+
+export "browser" fn audio_sample_rate() -> i32 {
+    return demos::sample_rate();
+}
+
+export "browser" fn demo_has_audio(word_id: i32) -> i32 {
+    if demos::has_audio(word_id) { return 1; }
+    return 0;
+}
+
+// ---- catalog engine ------------------------------------------------------
+
+fn read_slot(allocator: Allocator, slot: i32, total_len: i64) -> string::GrowError!string::String {
+    var out = string::new(allocator);
+    errdefer out.deinit(allocator);
+    if total_len <= 0 {
+        return move out;
+    }
+    try out.reserve(allocator, total_len);
+    var chunk = [8192]u8{};
+    let writable = chunk.as_mut_bytes();
+    var offset: i64 = 0;
+    while offset < total_len {
+        // SAFETY: read_input writes at most 8192 bytes into writable during this synchronous call.
+        let got = cast<i64>(unsafe read_input(slot, cast<i32>(offset), writable));
+        if got <= 0 {
+            break;
+        }
+        try out.append_bytes(allocator, writable[0..got]);
+        offset = offset + got;
+    }
+    return move out;
+}
+
+fn build_core(allocator: Allocator, tsv_len: i64) -> string::GrowError!catalog::Catalog {
+    var raw = try read_slot(allocator, 0, tsv_len);
+    errdefer raw.deinit(allocator);
+    return try catalog::build(allocator, move raw);
+}
+
+export "browser" fn core_new(tsv_len: usize) -> usize {
+    let allocator = mem::page_allocator();
+    if build_core(allocator, cast<i64>(tsv_len)) |cat| {
+        let words = (cast<i64>(mem::size_of<catalog::Catalog>()) + 7) / 8;
+        var backing = array::new<u64>(allocator);
+        for 0..words |_| {
+            if backing.append(allocator, cast<u64>(0)) {} else |_| {
+                cat.deinit(allocator);
+                backing.deinit(allocator);
+                // SAFETY: static slice during synchronous call.
+                unsafe give_error("Out of memory storing catalog");
+                return 0;
+            }
+        }
+        let slots = backing.as_mut_slice();
+        // SAFETY: backing has 8-byte alignment and at least size_of<Catalog>() bytes.
+        let p = unsafe cast<ptr<catalog::Catalog>>(mut_ptr_of(slots));
+        // SAFETY: p points to uninitialized owned storage in backing, leaked below.
+        unsafe ptr_write(p, move cat);
+        // SAFETY: address is returned to JS and handed back only to catalog_search.
+        let address = unsafe int_from_ptr<usize>(p);
+        mem::leak<array::Array<u64>>(move backing);
+        return address;
+    } else |_| {
+        // SAFETY: static slice during synchronous call.
+        unsafe give_error("Out of memory initializing catalog");
+        return 0;
+    }
+}
+
+fn search_inner(allocator: Allocator, cat: &catalog::Catalog, cat_filter: i32, q_len: i64) -> string::GrowError!i32 {
+    let q_buf = try read_slot(allocator, 1, q_len);
+    defer q_buf.deinit(allocator);
+    var out = string::new(allocator);
+    defer out.deinit(allocator);
+    let q_bytes = q_buf.as_bytes();
+    try catalog::search(allocator, cat, cat_filter, q_bytes, &var out);
+    let bytes = out.as_bytes();
+    // SAFETY: give_bytes copies slice synchronously.
+    unsafe give_bytes(0, bytes);
+    return 0;
+}
+
+export "browser" fn catalog_search(address: usize, cat_filter: i32, q_len: usize) -> i32 {
+    if address == 0 {
+        // SAFETY: static slice during synchronous host call.
+        unsafe give_error("Invalid catalog handle");
+        return 1;
+    }
+    let allocator = mem::page_allocator();
+    // SAFETY: address comes from core_new and lives for the Wasm instance lifetime.
+    let p = unsafe ptr_from_int<ptr<catalog::Catalog>>(address);
+    // SAFETY: p points to leaked Catalog owned by this Wasm instance.
+    let cat = unsafe &p.*;
+    if search_inner(allocator, cat, cat_filter, cast<i64>(q_len)) |rc| {
+        return rc;
+    } else |_| {
+        // SAFETY: static slice during synchronous host call.
+        unsafe give_error("Out of memory during search");
+        return 1;
+    }
+}
+
+// ---- demos & audio synthesis exports -------------------------------------
+
+fn render_inner(allocator: Allocator, word_id: i32, p: params::Params) -> mem::Error!i32 {
+    var svg_out = string::new(allocator);
+    defer svg_out.deinit(allocator);
+    var readout = string::new(allocator);
+    defer readout.deinit(allocator);
+    var hint = string::new(allocator);
+    defer hint.deinit(allocator);
+    try demos::render(allocator, word_id, p, &var svg_out, &var readout, &var hint);
+    let s_bytes = svg_out.as_bytes();
+    let r_bytes = readout.as_bytes();
+    let h_bytes = hint.as_bytes();
+    // SAFETY: give_bytes copies slice synchronously before svg_out is freed.
+    unsafe give_bytes(1, s_bytes);
+    // SAFETY: give_bytes copies slice synchronously before readout is freed.
+    unsafe give_bytes(2, r_bytes);
+    // SAFETY: give_bytes copies slice synchronously before hint is freed.
+    unsafe give_bytes(3, h_bytes);
+    return 0;
+}
+
+export "browser" fn demo_render(word_id: i32, p0: i32, p1: i32, p2: i32, p3: i32, tick: i32, action: i32) -> i32 {
+    let allocator = mem::page_allocator();
+    let p = params::Params { p0: p0, p1: p1, p2: p2, p3: p3, tick: tick, action: action };
+    if render_inner(allocator, word_id, p) |rc| {
+        return rc;
+    } else |_| {
+        // SAFETY: static slice during synchronous host call.
+        unsafe give_error("Out of memory rendering SVG demo");
+        return 1;
+    }
+}
+
+fn synth_inner(allocator: Allocator, word_id: i32, p: params::Params) -> mem::Error!i32 {
+    var pcm = string::new(allocator);
+    defer pcm.deinit(allocator);
+    try demos::synth_pcm(allocator, word_id, p, &var pcm);
+    let bytes = pcm.as_bytes();
+    // SAFETY: give_bytes copies PCM bytes synchronously before pcm is freed.
+    unsafe give_bytes(4, bytes);
+    return 0;
+}
+
+export "browser" fn demo_synth_pcm(word_id: i32, p0: i32, p1: i32, p2: i32, p3: i32, tick: i32, action: i32) -> i32 {
+    let allocator = mem::page_allocator();
+    let p = params::Params { p0: p0, p1: p1, p2: p2, p3: p3, tick: tick, action: action };
+    if synth_inner(allocator, word_id, p) |rc| {
+        return rc;
+    } else |_| {
+        // SAFETY: static slice during synchronous host call.
+        unsafe give_error("Out of memory synthesizing PCM audio");
+        return 1;
+    }
+}

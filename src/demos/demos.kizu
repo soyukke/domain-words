@@ -1,0 +1,56 @@
+// Dispatcher across all 54 domain-word interactive demos (9 categories x 6 words).
+import domain_words::demos::audio_dsp;
+import domain_words::demos::design;
+import domain_words::demos::dev_qa;
+import domain_words::demos::game_ui;
+import domain_words::demos::illustration;
+import domain_words::demos::params;
+import domain_words::demos::video;
+import std::mem;
+import std::string;
+
+pub fn total_words() -> i32 {
+    return 54;
+}
+
+pub fn has_audio(word_id: i32) -> bool {
+    return audio_dsp::has_audio(word_id);
+}
+
+pub fn sample_rate() -> i32 {
+    return audio_dsp::sample_rate();
+}
+
+pub fn render(
+    allocator: Allocator,
+    word_id: i32,
+    p: params::Params,
+    out_svg: &var string::String,
+    out_readout: &var string::String,
+    out_hint: &var string::String,
+) -> mem::Error!void {
+    if word_id >= 0 and word_id <= 5 {
+        try illustration::render(allocator, word_id, p, out_svg, out_readout, out_hint);
+    } else if word_id >= 6 and word_id <= 11 {
+        try design::render(allocator, word_id, p, out_svg, out_readout, out_hint);
+    } else if word_id >= 12 and word_id <= 17 {
+        try video::render(allocator, word_id, p, out_svg, out_readout, out_hint);
+    } else if word_id >= 18 and word_id <= 29 {
+        try audio_dsp::render(allocator, word_id, p, out_svg, out_readout, out_hint);
+    } else if word_id >= 30 and word_id <= 41 {
+        try dev_qa::render(allocator, word_id, p, out_svg, out_readout, out_hint);
+    } else {
+        try game_ui::render(allocator, word_id, p, out_svg, out_readout, out_hint);
+    }
+    return;
+}
+
+pub fn synth_pcm(
+    allocator: Allocator,
+    word_id: i32,
+    p: params::Params,
+    out_pcm: &var string::String,
+) -> mem::Error!void {
+    try audio_dsp::synth_pcm(allocator, word_id, p, out_pcm);
+    return;
+}
